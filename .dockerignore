@@ -1,0 +1,9 @@
+.env
+*.log
+*.yaml
+.dockerignore
+README.md
+eslint.config.js
+
+tests
+node_modules

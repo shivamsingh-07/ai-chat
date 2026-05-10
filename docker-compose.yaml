@@ -1,0 +1,66 @@
+services:
+  app:
+    container_name: ai-chat
+    build: .
+    restart: unless-stopped
+    ports:
+      - 5000:5000
+    environment:
+      MONGO_HOST: database:27017
+      MONGO_DB: ai-chat
+      MONGO_USER: admin
+      MONGO_PASSWORD: password
+      OLLAMA_URL: ollama:11434
+      OLLAMA_MODEL: smollm2:135m
+    depends_on:
+      database:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    networks:
+      - ai-net
+
+  database:
+    container_name: ai-db
+    image: mongo
+    restart: unless-stopped
+    ports:
+      - 27017:27017
+    volumes:
+      - ai-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+    networks:
+      - ai-net
+
+  ollama:
+    container_name: ai-model
+    image: ollama/ollama
+    restart: unless-stopped
+    ports:
+      - 11434:11434
+    volumes:
+      - ai-models:/root/.ollama
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        ollama serve &
+        until ollama list > /dev/null 2>&1; do sleep 1; done
+        ollama pull smollm2:135m
+        wait
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list | grep smollm2:135m"]
+      start_period: 30s
+    networks:
+      - ai-net
+
+volumes:
+  ai-data:
+  ai-models:
+
+networks:
+  ai-net:
