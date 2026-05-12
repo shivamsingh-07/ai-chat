@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-model
+spec:
+  selector:
+    matchLabels:
+      app: chat-model
+  template:
+    metadata:
+      labels:
+        app: chat-model
+    spec:
+      containers:
+        - name: chat-model
+          image: ollama/ollama
+          command:
+            - /bin/sh
+            - -c
+            - |
+              ollama serve &
+              until ollama list > /dev/null 2>&1; do sleep 1; done
+              ollama pull smollm2:135m
+              wait
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 500m
+            limits:
+              memory: 1Gi
+              cpu: 1000m
+          ports:
+            - containerPort: 11434
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "ollama list | grep smollm2:135m"]
+            initialDelaySeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 5
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+      volumes:
+        - name: ollama-models
+          persistentVolumeClaim:
+            claimName: chat-models-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chat-models-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-model-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: chat-model
+  ports:
+    - port: 11434
+      targetPort: 11434
+      protocol: TCP

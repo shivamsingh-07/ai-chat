@@ -71,13 +71,41 @@ npm run lint    # Check code style
 ## Project Structure
 
 ```text
-/app
-  /controllers  # Request handlers
-  /services     # Business logic
-  /routes       # API route definitions
-  /models       # Mongoose schemas
-  /public       # Frontend assets
-server.js       # Entry point
+.
+├── server.js                 # Application entry (loads env, builds app, listens)
+├── package.json
+├── yarn.lock
+├── Dockerfile                # Multi-stage Node image for the API
+├── docker-compose.yaml       # Local stack: API, MongoDB, Ollama
+├── eslint.config.js
+│
+├── app/
+│   ├── app.js                # Express factory: DB init, middleware, routes, static
+│   ├── routes.js             # Route tables (/health, /api/sessions)
+│   ├── middleware.js         # Core middleware (logging, validation, errors)
+│   ├── config/               # App, MongoDB, Ollama settings from env
+│   ├── controllers/          # HTTP handlers (health, session, chat)
+│   ├── services/             # Chat, session, Ollama integration
+│   ├── models/               # Mongoose models (session, message)
+│   ├── schemas/              # Zod schemas for request/response validation
+│   ├── utils/                # HTTP helpers, retries, time
+│   └── public/               # Static UI (HTML, CSS, JS, assets)
+│
+├── kubernetes/               # Kubernetes manifests (ConfigMap, Secret, workloads, Services)
+│   ├── variables.yaml        # chat-app-config + chat-app-secrets
+│   ├── database.yaml         # MongoDB StatefulSet + Service
+│   ├── model.yaml            # Ollama Deployment, PVC, Service
+│   └── application.yaml      # API Deployment + LoadBalancer Service
+│
+├── scripts/
+│   ├── cluster.sh            # Minikube profile lifecycle (create/start/stop/delete/status)
+│   └── deploy-k8s-stack.sh   # Ordered kubectl apply + wait for DB/model pods
+│
+└── tests/
+    ├── integration/          # HTTP tests against the app
+    ├── unit/                 # Unit tests (config, validation, errors, utils)
+    ├── helpers/              # Test app factory, mocks, silent logger
+    └── fixtures/             # Shared test data (e.g. UUIDs)
 ```
 
 ## Notes
