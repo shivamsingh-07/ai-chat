@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+data:
+  MONGO_HOST: {{ .Release.Name }}-db-svc:{{ .Values.database.port }}
+  MONGO_DB: {{ .Release.Name }}
+  OLLAMA_URL: {{ .Release.Name }}-model-svc:{{ .Values.ollama.port }}
+  OLLAMA_MODEL: {{ .Values.ollama.model }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-secrets
+type: Opaque
+stringData:
+  MONGO_USER: {{ .Values.secrets.user }}
+  MONGO_PASSWORD: {{ .Values.secrets.password }}

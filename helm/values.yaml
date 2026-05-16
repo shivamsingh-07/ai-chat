@@ -1,0 +1,35 @@
+app:
+  image: abstergo07/ai-chat
+  port: 5000
+  replicas: 3
+  service:
+    type: LoadBalancer
+
+database:
+  image: mongo
+  port: 27017
+  replicas: 1
+
+ollama:
+  image: ollama/ollama
+  port: 11434
+  replicas: 1
+  model: smollm2:135m
+
+secrets:
+  user: admin
+  password: password
+
+mongodb-exporter:
+  enabled: true
+  fullnameOverride: mongo-exporter
+  mongodb:
+    uri: mongodb://admin:password@ai-chat-db-svc:27017/?authSource=admin
+  extraArgs:
+    - --compatible-mode
+    - --collect-all
+  customLabels:
+    release: prometheus
+  serviceMonitor:
+    enabled: true
+    interval: 15s

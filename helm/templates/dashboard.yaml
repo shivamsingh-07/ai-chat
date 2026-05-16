@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-app-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  chat-app.json: |
+{{ .Files.Get "dashboards/chat-app.json" | indent 4 }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-mongodb-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  mongodb.json: |
+{{ .Files.Get "dashboards/mongodb.json" | indent 4 }}

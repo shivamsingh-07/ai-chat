@@ -1,0 +1,12 @@
+apiVersion: v2
+name: chat-app
+description: An AI chat application built with Express.js, MongoDB, and Ollama.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: prometheus-mongodb-exporter
+    alias: mongodb-exporter
+    version: "3.20.0"
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: mongodb-exporter.enabled

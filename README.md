@@ -94,7 +94,7 @@ Both paths use the same resource names (`ai-chat`, `ai-chat-svc`, `ai-chat-db-sv
 
 **Dashboards:** JSON lives in `grafana/`. The Helm chart loads them via `helm/dashboards/` (symlinks into `grafana/`). The plain-k8s script creates ConfigMaps with `kubectl create configmap … --from-file` from `grafana/`.
 
-**MongoDB exporter:** Both scripts install `prometheus-community/prometheus-mongodb-exporter` against `ai-chat-db-svc` with `--compatible-mode` (legacy metric names for Grafana), `--collect-all`, and a ServiceMonitor labeled `release: prometheus`.
+**MongoDB exporter:** The Helm chart installs `prometheus-mongodb-exporter` as a dependency (alias `mongodb-exporter`, `mongodb-exporter.enabled`, `--compatible-mode`, `--collect-all`, ServiceMonitor `release: prometheus`). The plain-k8s script installs the same exporter as a separate Helm release.
 
 **Access after deploy:**
 
@@ -144,8 +144,9 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 │   └── metrics.yaml          # Prometheus Operator ServiceMonitor
 │
 ├── helm/                     # Helm chart (parallel to kubernetes/)
-│   ├── Chart.yaml
-│   ├── values.yaml           # image, ports, replicas, secrets, ollama model
+│   ├── Chart.yaml            # declares prometheus-mongodb-exporter dependency
+│   ├── Chart.lock            # pinned dependency versions (helm dependency update)
+│   ├── values.yaml           # image, ports, replicas, secrets, mongo exporter subchart
 │   ├── dashboards/           # symlinks → ../grafana/*.json (packaged by chart)
 │   └── templates/
 │       ├── variables.yaml    # ConfigMap + Secret
@@ -159,7 +160,7 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 ├── scripts/
 │   ├── cluster.sh            # Minikube profile lifecycle (create/start/stop/delete/status)
 │   ├── deploy-k8s-stack.sh   # Prometheus stack, kubectl apply, dashboards, mongo-exporter
-│   └── deploy-helm-stack.sh  # Prometheus stack, helm upgrade --install ai-chat + mongo-exporter
+│   └── deploy-helm-stack.sh  # Prometheus stack, helm upgrade --install ai-chat (mongo exporter dependency)
 │
 └── tests/
     ├── integration/          # HTTP tests against the app

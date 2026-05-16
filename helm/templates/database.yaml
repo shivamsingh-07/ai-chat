@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-db
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-db
+  serviceName: {{ .Release.Name }}-db-svc
+  replicas: {{ .Values.database.replicas }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-db
+    spec:
+      containers:
+        - name: {{ .Release.Name }}-db
+          image: {{ .Values.database.image }}
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: MONGO_USER
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: MONGO_PASSWORD
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 200m
+          ports:
+            - containerPort: {{ .Values.database.port }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.database.port }}
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: {{ .Release.Name }}-data-pvc
+              mountPath: /data/db
+  volumeClaimTemplates:
+    - metadata:
+        name: {{ .Release.Name }}-data-pvc
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-db-svc
+spec:
+  selector:
+    app: {{ .Release.Name }}-db
+  ports:
+    - port: {{ .Values.database.port }}
+      targetPort: {{ .Values.database.port }}
+      protocol: TCP

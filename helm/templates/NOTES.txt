@@ -1,0 +1,11 @@
+chat-app "{{ .Release.Name }}" deployed to namespace "{{ .Release.Namespace }}".
+
+Reach the API (LoadBalancer external IP):
+  kubectl -n {{ .Release.Namespace }} get svc {{ .Release.Name }}-svc
+
+Metrics: GET /metrics    Health: /health/live, /health/ready
+
+MongoDB metrics: mongodb-exporter subchart (ServiceMonitor scrape /metrics).
+
+Override default Mongo credentials before production:
+  helm upgrade {{ .Release.Name }} . --set secrets.password=<strong>
