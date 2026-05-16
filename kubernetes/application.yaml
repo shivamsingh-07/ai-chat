@@ -1,24 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: chat-api
+  name: ai-chat
 spec:
+  replicas: 3
   selector:
     matchLabels:
-      app: chat-api
+      app: ai-chat
   template:
     metadata:
       labels:
-        app: chat-api
+        app: ai-chat
     spec:
       containers:
-        - name: chat-api
+        - name: ai-chat
           image: abstergo07/ai-chat
           envFrom:
             - configMapRef:
-                name: chat-app-config
+                name: ai-chat-config
             - secretRef:
-                name: chat-app-secrets
+                name: ai-chat-secrets
           resources:
             requests:
               memory: 256Mi
@@ -28,30 +29,40 @@ spec:
               cpu: 500m
           ports:
             - containerPort: 5000
+          startupProbe:
+            tcpSocket:
+              port: 5000
+            periodSeconds: 5
+            failureThreshold: 60
+            timeoutSeconds: 3
           livenessProbe:
             httpGet:
               path: /health/live
               port: 5000
+            periodSeconds: 15
             timeoutSeconds: 5
-            failureThreshold: 5
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /health/ready
               port: 5000
-            initialDelaySeconds: 30
+            periodSeconds: 10
             timeoutSeconds: 10
-            failureThreshold: 5
+            failureThreshold: 6
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: chat-api-svc
+  name: ai-chat-svc
+  labels:
+    app: ai-chat
 spec:
   type: LoadBalancer
   selector:
-    app: chat-api
+    app: ai-chat
   ports:
-    - port: 5000
+    - name: http
+      port: 5000
       targetPort: 5000
       protocol: TCP

@@ -1,0 +1,398 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "description": "Core HTTP health for the AI Chat API.",
+    "editable": true,
+    "graphTooltip": 1,
+    "schemaVersion": 39,
+    "tags": [
+        "ai-chat"
+    ],
+    "title": "AI Chat / Service Overview",
+    "uid": "ai-chat-service-overview",
+    "refresh": "30s",
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+        "list": [
+            {
+                "name": "datasource",
+                "label": "Data source",
+                "type": "datasource",
+                "query": "prometheus",
+                "current": {
+                    "selected": true,
+                    "text": "Prometheus",
+                    "value": "prometheus"
+                },
+                "hide": 0,
+                "refresh": 1,
+                "regex": "",
+                "skipUrlSync": false
+            },
+            {
+                "name": "pod",
+                "label": "Pod",
+                "type": "query",
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${datasource}"
+                },
+                "definition": "label_values(up{namespace=\"chat-app\",service=\"ai-chat-svc\"}, pod)",
+                "query": {
+                    "qryType": 1,
+                    "query": "label_values(up{namespace=\"chat-app\",service=\"ai-chat-svc\"}, pod)",
+                    "refId": "VAR_pod"
+                },
+                "refresh": 2,
+                "includeAll": true,
+                "allValue": ".*",
+                "multi": true,
+                "sort": 1,
+                "current": {
+                    "selected": true,
+                    "text": [
+                        "All"
+                    ],
+                    "value": [
+                        "$__all"
+                    ]
+                }
+            }
+        ]
+    },
+    "panels": [
+        {
+            "id": 1,
+            "type": "stat",
+            "title": "Success rate (5m)",
+            "description": "Non-5xx share (5m). 100% when idle.",
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 6,
+                "h": 5
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percentunit",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "yellow",
+                                "value": 0.99
+                            },
+                            {
+                                "color": "green",
+                                "value": 0.999
+                            }
+                        ]
+                    },
+                    "decimals": 2,
+                    "min": 0,
+                    "max": 1
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "colorMode": "background",
+                "graphMode": "none",
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "expr": "(1 - (sum(rate(http_request_duration_seconds_count{namespace=\"chat-app\",pod=~\"$pod\",route=~\".+\",code=~\"5..\"}[5m])) or on() vector(0)) / clamp_min(sum(rate(http_request_duration_seconds_count{namespace=\"chat-app\",pod=~\"$pod\",route=~\".+\"}[5m])) or on() vector(1), 1e-9))",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "type": "stat",
+            "title": "Request rate",
+            "description": "",
+            "gridPos": {
+                "x": 6,
+                "y": 0,
+                "w": 6,
+                "h": 5
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "reqps",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "area",
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "expr": "sum(rate(http_request_duration_seconds_count{namespace=\"chat-app\",pod=~\"$pod\"}[5m]))",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "type": "stat",
+            "title": "95th percentile response time",
+            "description": "95% of requests complete faster than this (5m window).",
+            "gridPos": {
+                "x": 12,
+                "y": 0,
+                "w": 6,
+                "h": 5
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "area",
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace=\"chat-app\",pod=~\"$pod\"}[5m])))",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "type": "stat",
+            "title": "API pods up",
+            "description": "Replicas scraping /metrics via ai-chat-svc (excludes mongo-exporter and other workloads).",
+            "gridPos": {
+                "x": 18,
+                "y": 0,
+                "w": 6,
+                "h": 5
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "area",
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "expr": "count(up{namespace=\"chat-app\",service=\"ai-chat-svc\",pod=~\"$pod\"} == 1)",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "type": "timeseries",
+            "title": "Requests by status code",
+            "description": "",
+            "gridPos": {
+                "x": 0,
+                "y": 5,
+                "w": 12,
+                "h": 8
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "reqps",
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 15,
+                        "lineWidth": 1
+                    },
+                    "color": {
+                        "mode": "palette-classic"
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum by (code) (rate(http_request_duration_seconds_count{namespace=\"chat-app\",pod=~\"$pod\"}[5m]))",
+                    "legendFormat": "{{code}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "type": "timeseries",
+            "title": "Response time over time",
+            "description": "95th percentile request duration (5m rate).",
+            "gridPos": {
+                "x": 12,
+                "y": 5,
+                "w": 12,
+                "h": 8
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 15,
+                        "lineWidth": 1
+                    },
+                    "color": {
+                        "mode": "palette-classic"
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace=\"chat-app\",pod=~\"$pod\"}[5m])))",
+                    "legendFormat": "95th percentile",
+                    "refId": "A"
+                }
+            ]
+        }
+    ]
+}

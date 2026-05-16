@@ -7,7 +7,10 @@ AI chat application built with Express.js, MongoDB, and Ollama.
 - AI chat with Ollama
 - Session-based conversations
 - Message persistence
-- Structured logging
+- Structured logging (`pino`)
+- Prometheus metrics (`/metrics`, request duration histogram + Node.js runtime)
+- Grafana dashboards for the API and MongoDB (`grafana/`)
+- Plain Kubernetes manifests and a Helm chart for cluster deploys
 - Minimal frontend UI
 
 ## Requirements
@@ -40,11 +43,11 @@ AI chat application built with Express.js, MongoDB, and Ollama.
 | :--------------- | :----------------------- | :--------------------------------------- |
 | `PORT`           | `5000`                   | HTTP port for the server (default: 5000) |
 | `MONGO_HOST`     | `127.0.0.1:27017`        | MongoDB connection host and port         |
-| `MONGO_DB`       | `chat-app`               | Name of the MongoDB database             |
+| `MONGO_DB`       | `ai-chat`                | Name of the MongoDB database             |
 | `MONGO_USER`     | `admin`                  | MongoDB username (optional)              |
 | `MONGO_PASSWORD` | `password`               | MongoDB password (optional)              |
 | `OLLAMA_URL`     | `http://127.0.0.1:11434` | Ollama API base URL                      |
-| `OLLAMA_MODEL`   | `llama3.2`               | Name of the Ollama model to use          |
+| `OLLAMA_MODEL`   | `smollm2:135m`           | Name of the Ollama model to use          |
 
 ## Run Commands
 
@@ -67,6 +70,44 @@ npm run lint    # Check code style
 | `POST`   | `/api/sessions/:id/chat`     | Send a new message to the AI        |
 | `GET`    | `/health/live`               | Liveness check                      |
 | `GET`    | `/health/ready`              | Readiness check (DB & AI)           |
+| `GET`    | `/metrics`                   | Prometheus scrape (text format)     |
+
+## Kubernetes
+
+Requires [Minikube](https://minikube.sigs.k8s.io/) (or another cluster), `kubectl`, and Helm. Use `scripts/cluster.sh` to create a local profile (`ai-chat`, Cilium CNI, metrics-server).
+
+Both deploy scripts install [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) into the `monitoring` namespace, then deploy the app into `chat-app`. Grafana picks up dashboard ConfigMaps labeled `grafana_dashboard=1`.
+
+Run deploy scripts from the `scripts/` directory:
+
+```bash
+cd scripts
+
+# Plain manifests (kubectl) + observability add-ons
+./deploy-k8s-stack.sh
+
+# Helm chart (release name must be ai-chat to match kubernetes/ names)
+./deploy-helm-stack.sh
+```
+
+Both paths use the same resource names (`ai-chat`, `ai-chat-svc`, `ai-chat-db-svc`, `ai-chat-config`, etc.). The Helm release name must be `ai-chat` so templated names stay in sync with the plain manifests.
+
+**Dashboards:** JSON lives in `grafana/`. The Helm chart loads them via `helm/dashboards/` (symlinks into `grafana/`). The plain-k8s script creates ConfigMaps with `kubectl create configmap … --from-file` from `grafana/`.
+
+**MongoDB exporter:** Both scripts install `prometheus-community/prometheus-mongodb-exporter` against `ai-chat-db-svc` with `--compatible-mode` (legacy metric names for Grafana), `--collect-all`, and a ServiceMonitor labeled `release: prometheus`.
+
+**Access after deploy:**
+
+```bash
+# API (LoadBalancer — use minikube tunnel or cloud LB if EXTERNAL-IP is pending)
+kubectl -n chat-app get svc ai-chat-svc
+
+# Grafana (kube-prometheus-stack)
+kubectl -n monitoring port-forward svc/prometheus-grafana 3000:80
+# default login admin / prom-operator (unless changed in values)
+```
+
+Override demo credentials before production (`kubernetes/variables.yaml`, `helm/values.yaml`, or `helm upgrade --set secrets.password=...`).
 
 ## Project Structure
 
@@ -83,7 +124,7 @@ npm run lint    # Check code style
 │   ├── app.js                # Express factory: DB init, middleware, routes, static
 │   ├── routes.js             # Route tables (/health, /api/sessions)
 │   ├── middleware.js         # Core middleware (logging, validation, errors)
-│   ├── config/               # App, MongoDB, Ollama settings from env
+│   ├── config/               # app, database, ollama, prometheus (metrics registry)
 │   ├── controllers/          # HTTP handlers (health, session, chat)
 │   ├── services/             # Chat, session, Ollama integration
 │   ├── models/               # Mongoose models (session, message)
@@ -91,15 +132,34 @@ npm run lint    # Check code style
 │   ├── utils/                # HTTP helpers, retries, time
 │   └── public/               # Static UI (HTML, CSS, JS, assets)
 │
-├── kubernetes/               # Kubernetes manifests (ConfigMap, Secret, workloads, Services)
-│   ├── variables.yaml        # chat-app-config + chat-app-secrets
+├── grafana/                  # Grafana dashboard JSON (source of truth)
+│   ├── chat-app.json         # API RED / Node.js / container metrics
+│   └── mongodb.json          # MongoDB exporter dashboard
+│
+├── kubernetes/               # Plain manifests (kubectl apply)
+│   ├── variables.yaml        # ai-chat-config + ai-chat-secrets
 │   ├── database.yaml         # MongoDB StatefulSet + Service
 │   ├── model.yaml            # Ollama Deployment, PVC, Service
-│   └── application.yaml      # API Deployment + LoadBalancer Service
+│   ├── application.yaml      # API Deployment + LoadBalancer Service
+│   └── metrics.yaml          # Prometheus Operator ServiceMonitor
+│
+├── helm/                     # Helm chart (parallel to kubernetes/)
+│   ├── Chart.yaml
+│   ├── values.yaml           # image, ports, replicas, secrets, ollama model
+│   ├── dashboards/           # symlinks → ../grafana/*.json (packaged by chart)
+│   └── templates/
+│       ├── variables.yaml    # ConfigMap + Secret
+│       ├── database.yaml     # MongoDB StatefulSet + Service
+│       ├── model.yaml        # Ollama Deployment, PVC, Service
+│       ├── application.yaml  # API Deployment + Service
+│       ├── metrics.yaml      # ServiceMonitor
+│       ├── dashboard.yaml    # Grafana dashboard ConfigMaps
+│       └── NOTES.txt         # Post-install notes
 │
 ├── scripts/
 │   ├── cluster.sh            # Minikube profile lifecycle (create/start/stop/delete/status)
-│   └── deploy-k8s-stack.sh   # Ordered kubectl apply + wait for DB/model pods
+│   ├── deploy-k8s-stack.sh   # Prometheus stack, kubectl apply, dashboards, mongo-exporter
+│   └── deploy-helm-stack.sh  # Prometheus stack, helm upgrade --install ai-chat + mongo-exporter
 │
 └── tests/
     ├── integration/          # HTTP tests against the app
@@ -111,4 +171,5 @@ npm run lint    # Check code style
 ## Notes
 
 - Use `npm run dev` for the best development experience with hot-reloading.
-- Ensure Ollama is running locally and the specified model is pulled before chatting.
+- Ensure Ollama is running locally and the model in `OLLAMA_MODEL` (default `smollm2:135m`) is pulled before chatting.
+- `docker-compose.yaml` is the simplest local stack; use Kubernetes scripts when testing probes, metrics, and Grafana.

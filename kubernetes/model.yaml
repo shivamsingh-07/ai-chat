@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: chat-model
+  name: ai-chat-model
 spec:
   selector:
     matchLabels:
-      app: chat-model
+      app: ai-chat-model
   template:
     metadata:
       labels:
-        app: chat-model
+        app: ai-chat-model
     spec:
       containers:
-        - name: chat-model
+        - name: ai-chat-model
           image: ollama/ollama
           command:
             - /bin/sh
@@ -33,7 +33,7 @@ spec:
             - containerPort: 11434
           readinessProbe:
             exec:
-              command: ["/bin/sh", "-c", "ollama list | grep smollm2:135m"]
+              command: ["/bin/sh", "-c", "ollama list | grep -F 'smollm2:135m'"]
             initialDelaySeconds: 30
             timeoutSeconds: 15
             failureThreshold: 5
@@ -43,13 +43,13 @@ spec:
       volumes:
         - name: ollama-models
           persistentVolumeClaim:
-            claimName: chat-models-pvc
+            claimName: ai-chat-models-pvc
 
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: chat-models-pvc
+  name: ai-chat-models-pvc
 spec:
   accessModes:
     - ReadWriteOnce
@@ -61,11 +61,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: chat-model-svc
+  name: ai-chat-model-svc
 spec:
-  type: ClusterIP
   selector:
-    app: chat-model
+    app: ai-chat-model
   ports:
     - port: 11434
       targetPort: 11434

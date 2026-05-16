@@ -1,0 +1,348 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "description": "Core MongoDB health for the AI Chat stack.",
+    "editable": true,
+    "graphTooltip": 1,
+    "schemaVersion": 39,
+    "tags": [
+        "ai-chat",
+        "mongodb"
+    ],
+    "title": "AI Chat / Database Overview",
+    "uid": "ai-chat-database-overview",
+    "refresh": "30s",
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+        "list": [
+            {
+                "name": "datasource",
+                "label": "Data source",
+                "type": "datasource",
+                "query": "prometheus",
+                "current": {
+                    "selected": true,
+                    "text": "Prometheus",
+                    "value": "prometheus"
+                },
+                "hide": 0,
+                "refresh": 1,
+                "regex": "",
+                "skipUrlSync": false
+            }
+        ]
+    },
+    "panels": [
+        {
+            "id": 1,
+            "type": "stat",
+            "title": "MongoDB status",
+            "description": "",
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 8,
+                "h": 5
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    },
+                    "mappings": [
+                        {
+                            "type": "value",
+                            "options": {
+                                "0": {
+                                    "color": "red",
+                                    "index": 0,
+                                    "text": "DOWN"
+                                },
+                                "1": {
+                                    "color": "green",
+                                    "index": 1,
+                                    "text": "UP"
+                                }
+                            }
+                        }
+                    ]
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "last"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "colorMode": "background",
+                "graphMode": "none",
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "expr": "mongodb_up",
+                    "refId": "A",
+                    "instant": true,
+                    "range": false,
+                    "interval": ""
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "type": "stat",
+            "title": "Uptime",
+            "description": "",
+            "gridPos": {
+                "x": 8,
+                "y": 0,
+                "w": 8,
+                "h": 5
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "last"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "area",
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "expr": "mongodb_instance_uptime_seconds",
+                    "refId": "A",
+                    "instant": true,
+                    "range": false,
+                    "interval": ""
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "type": "stat",
+            "title": "Client connections",
+            "description": "Total TCP clients connected to mongod (all pods + exporter + driver pools). Not the same as API replica count.",
+            "gridPos": {
+                "x": 16,
+                "y": 0,
+                "w": 8,
+                "h": 5
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            }
+                        ]
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "last"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "area",
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "expr": "mongodb_connections{state=\"current\"}",
+                    "refId": "A",
+                    "instant": true,
+                    "range": false,
+                    "interval": ""
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "type": "timeseries",
+            "title": "Operations per second",
+            "description": "",
+            "gridPos": {
+                "x": 0,
+                "y": 5,
+                "w": 12,
+                "h": 8
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "ops",
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 15,
+                        "lineWidth": 1
+                    },
+                    "color": {
+                        "mode": "palette-classic"
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "expr": "rate(mongodb_op_counters_total{type=\"insert\"}[5m])",
+                    "legendFormat": "insert",
+                    "refId": "A"
+                },
+                {
+                    "expr": "rate(mongodb_op_counters_total{type=\"query\"}[5m])",
+                    "legendFormat": "query",
+                    "refId": "B"
+                },
+                {
+                    "expr": "rate(mongodb_op_counters_total{type=\"update\"}[5m])",
+                    "legendFormat": "update",
+                    "refId": "C"
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "type": "timeseries",
+            "title": "Client connections",
+            "description": "current = in use; available = pool capacity remaining on the server.",
+            "gridPos": {
+                "x": 12,
+                "y": 5,
+                "w": 12,
+                "h": 8
+            },
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 15,
+                        "lineWidth": 1
+                    },
+                    "color": {
+                        "mode": "palette-classic"
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "expr": "mongodb_connections{state=\"current\"}",
+                    "legendFormat": "current",
+                    "refId": "A"
+                },
+                {
+                    "expr": "mongodb_connections{state=\"available\"}",
+                    "legendFormat": "available",
+                    "refId": "B"
+                }
+            ]
+        }
+    ]
+}
