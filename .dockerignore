@@ -7,3 +7,6 @@ eslint.config.js
 
 tests
 node_modules
+kubernetes
+helm
+scripts

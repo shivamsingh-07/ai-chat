@@ -3,6 +3,7 @@ import express from "express";
 import pino from "pino";
 import { createRootLoggerOptions } from "./config/app.conf.js";
 import { initDatabase } from "./config/database.conf.js";
+import { prometheusHttpDurationMiddleware } from "./config/prometheus.conf.js";
 import { registerCoreMiddleware, notFoundMiddleware, errorHandlerMiddleware } from "./middleware.js";
 import { mountRoutes } from "./routes.js";
 
@@ -34,6 +35,7 @@ export async function buildApp(opts = {}) {
     }
 
     registerCoreMiddleware(app);
+    app.use(prometheusHttpDurationMiddleware);
     mountRoutes(app);
 
     if (withStatic) {

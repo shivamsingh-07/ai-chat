@@ -2,7 +2,7 @@ import "dotenv/config";
 import { buildApp } from "./app/app.js";
 
 const PORT = Number(process.env.PORT) || 5000;
-const NODE_ENV = process.env.NODE_ENV || "development";
+const NODE_ENV = process.env.NODE_ENV || "production";
 
 console.log(JSON.stringify({ level: "info", event: "server.starting", port: PORT, nodeEnv: NODE_ENV }));
 
