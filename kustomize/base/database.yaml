@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ai-chat-db
+spec:
+  selector:
+    matchLabels:
+      app: ai-chat-db
+  serviceName: ai-chat-db-svc
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ai-chat-db
+    spec:
+      containers:
+        - name: ai-chat-db
+          image: mongo
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ai-chat-secrets
+                  key: MONGO_USER
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ai-chat-secrets
+                  key: MONGO_PASSWORD
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 200m
+          ports:
+            - containerPort: 27017
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: ai-chat-data-pvc
+              mountPath: /data/db
+  volumeClaimTemplates:
+    - metadata:
+        name: ai-chat-data-pvc
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-chat-db-svc
+spec:
+  selector:
+    app: ai-chat-db
+  ports:
+    - port: 27017
+      targetPort: 27017
+      protocol: TCP

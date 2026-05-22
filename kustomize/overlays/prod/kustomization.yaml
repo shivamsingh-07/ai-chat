@@ -1,0 +1,19 @@
+resources:
+  - namespace.yaml
+  - ../../base
+
+namespace: chat-app-prod
+
+labels:
+  - pairs:
+      name: ai-chat-prod
+
+configMapGenerator:
+  - name: ai-chat-config
+    envs:
+      - config.env
+
+secretGenerator:
+  - name: ai-chat-secrets
+    envs:
+      - secret.env

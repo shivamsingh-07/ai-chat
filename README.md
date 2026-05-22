@@ -83,8 +83,12 @@ Run deploy scripts from the `scripts/` directory:
 ```bash
 cd scripts
 
-# Plain manifests (kubectl) + observability add-ons
+# Plain kubectl manifests (file-by-file apply)
 ./deploy-k8s-stack.sh
+
+# Kustomize — app only, two namespaces (no monitoring stack)
+kubectl apply -k ../kustomize/overlays/prod
+kubectl apply -k ../kustomize/overlays/dev
 
 # Helm chart (release name must be ai-chat to match kubernetes/ names)
 ./deploy-helm-stack.sh
@@ -142,6 +146,11 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 │   ├── model.yaml            # Ollama Deployment, PVC, Service
 │   ├── application.yaml      # API Deployment + LoadBalancer Service
 │   └── metrics.yaml          # Prometheus Operator ServiceMonitor
+├── kustomize/                # Kustomize app deploy (no ServiceMonitor / exporter)
+│   ├── base/                 # variables, database, model, application
+│   └── overlays/
+│       ├── dev/            # namespace, config.env, secret.env → chat-app-dev
+│       └── prod/           # namespace, config.env, secret.env → chat-app-prod
 │
 ├── helm/                     # Helm chart (parallel to kubernetes/)
 │   ├── Chart.yaml            # declares prometheus-mongodb-exporter dependency
