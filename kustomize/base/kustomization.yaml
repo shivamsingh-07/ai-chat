@@ -2,3 +2,4 @@ resources:
   - database.yaml
   - model.yaml
   - application.yaml
+  - autoscaler.yaml

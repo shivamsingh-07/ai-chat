@@ -74,7 +74,7 @@ npm run lint    # Check code style
 
 ## Kubernetes
 
-Requires [Minikube](https://minikube.sigs.k8s.io/) (or another cluster), `kubectl`, and Helm. Use `scripts/cluster.sh` to create a local profile (`ai-chat`, Cilium CNI, metrics-server).
+Requires [Minikube](https://minikube.sigs.k8s.io/) (or another cluster), `kubectl`, and Helm. Use `scripts/cluster.sh` to create a local profile (`ai-chat`, Cilium CNI, metrics-server). The Ollama model Deployment is scaled by a HorizontalPodAutoscaler on CPU (70%) and memory (80%) utilization; metrics-server must be running for HPA to work.
 
 Both deploy scripts install [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) into the `monitoring` namespace, then deploy the app into `chat-app`. Grafana picks up dashboard ConfigMaps labeled `grafana_dashboard=1`.
 
@@ -94,7 +94,9 @@ kubectl apply -k ../kustomize/overlays/dev
 ./deploy-helm-stack.sh
 ```
 
-Both paths use the same resource names (`ai-chat`, `ai-chat-svc`, `ai-chat-db-svc`, `ai-chat-config`, etc.). The Helm release name must be `ai-chat` so templated names stay in sync with the plain manifests.
+Both paths use the same resource names (`ai-chat`, `ai-chat-svc`, `ai-chat-db-svc`, `ai-chat-config`, `ai-chat-model-hpa`, etc.). The Helm release name must be `ai-chat` so templated names stay in sync with the plain manifests.
+
+**Ollama autoscaler:** `kubernetes/autoscaler.yaml` (plain kubectl), `kustomize/base/autoscaler.yaml`, and `helm/templates/autoscaler.yaml` define an HPA for the Ollama model Deployment (1–5 replicas). Tune limits in the manifest or via Helm (`autoscaler.minReplicas`, `autoscaler.maxReplicas`, `autoscaler.cpu.averageUtilization`, `autoscaler.memory.averageUtilization`).
 
 **Dashboards:** JSON lives in `grafana/`. The Helm chart loads them via `helm/dashboards/` (symlinks into `grafana/`). The plain-k8s script creates ConfigMaps with `kubectl create configmap … --from-file` from `grafana/`.
 
@@ -143,11 +145,12 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 ├── kubernetes/               # Plain manifests (kubectl apply)
 │   ├── variables.yaml        # ai-chat-config + ai-chat-secrets
 │   ├── database.yaml         # MongoDB StatefulSet + Service
-│   ├── model.yaml            # Ollama Deployment, PVC, Service
+│   ├── model.yaml            # Ollama Deployment, Service
+│   ├── autoscaler.yaml       # HPA for Ollama model (CPU + memory)
 │   ├── application.yaml      # API Deployment + LoadBalancer Service
 │   └── metrics.yaml          # Prometheus Operator ServiceMonitor
 ├── kustomize/                # Kustomize app deploy (no ServiceMonitor / exporter)
-│   ├── base/                 # variables, database, model, application
+│   ├── base/                 # variables, database, model, autoscaler, application
 │   └── overlays/
 │       ├── dev/            # namespace, config.env, secret.env → chat-app-dev
 │       └── prod/           # namespace, config.env, secret.env → chat-app-prod
@@ -160,7 +163,8 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 │   └── templates/
 │       ├── variables.yaml    # ConfigMap + Secret
 │       ├── database.yaml     # MongoDB StatefulSet + Service
-│       ├── model.yaml        # Ollama Deployment, PVC, Service
+│       ├── model.yaml        # Ollama Deployment, Service
+│       ├── autoscaler.yaml   # HPA for Ollama model (CPU + memory)
 │       ├── application.yaml  # API Deployment + Service
 │       ├── metrics.yaml      # ServiceMonitor
 │       ├── dashboard.yaml    # Grafana dashboard ConfigMaps

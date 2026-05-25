@@ -34,6 +34,9 @@ echo "Deploying model..."
 kubectl apply -n "$NAMESPACE" -f ../kubernetes/model.yaml
 kubectl wait -n "$NAMESPACE" --for=condition=Ready pods -l app=ai-chat-model --timeout=600s
 
+echo "Deploying model autoscaler..."
+kubectl apply -n "$NAMESPACE" -f ../kubernetes/autoscaler.yaml
+
 echo "Deploying application..."
 kubectl apply -n "$NAMESPACE" -f ../kubernetes/application.yaml
 

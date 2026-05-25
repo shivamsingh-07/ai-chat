@@ -13,8 +13,15 @@ database:
 ollama:
   image: ollama/ollama
   port: 11434
-  replicas: 1
   model: smollm2:135m
+
+autoscaler:
+  minReplicas: 1
+  maxReplicas: 5
+  cpu:
+    averageUtilization: 70
+  memory:
+    averageUtilization: 80
 
 secrets:
   user: admin

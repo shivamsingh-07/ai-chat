@@ -3,7 +3,6 @@ kind: Deployment
 metadata:
   name: {{ .Release.Name }}-model
 spec:
-  replicas: {{ .Values.ollama.replicas }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-model
@@ -15,6 +14,7 @@ spec:
       containers:
         - name: {{ .Release.Name }}-model
           image: {{ .Values.ollama.image }}
+          imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
             - -c
@@ -46,20 +46,7 @@ spec:
               mountPath: /root/.ollama
       volumes:
         - name: ollama-models
-          persistentVolumeClaim:
-            claimName: {{ .Release.Name }}-models-pvc
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: {{ .Release.Name }}-models-pvc
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
+          emptyDir: {}
 
 ---
 apiVersion: v1
