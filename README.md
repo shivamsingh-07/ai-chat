@@ -9,7 +9,7 @@ AI chat application built with Express.js, MongoDB, and Ollama.
 - Message persistence
 - Structured logging (`pino`)
 - Prometheus metrics (`/metrics`, request duration histogram + Node.js runtime)
-- Grafana dashboards for the API and MongoDB (`grafana/`)
+- Grafana dashboards for metrics, MongoDB, and **Service Logs** (`grafana/`)
 - Plain Kubernetes manifests and a Helm chart for cluster deploys
 - Minimal frontend UI
 
@@ -76,7 +76,7 @@ npm run lint    # Check code style
 
 Requires [Minikube](https://minikube.sigs.k8s.io/) (or another cluster), `kubectl`, and Helm. Use `scripts/cluster.sh` to create a local profile (`ai-chat`, Cilium CNI, metrics-server). The Ollama model Deployment is scaled by a HorizontalPodAutoscaler on CPU (70%) and memory (80%) utilization; metrics-server must be running for HPA to work.
 
-Both deploy scripts install [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) into the `monitoring` namespace, then deploy the app into `chat-app`. Grafana picks up dashboard ConfigMaps labeled `grafana_dashboard=1`.
+The plain-k8s script installs [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack), [Loki](https://grafana.com/docs/loki/latest/), and [Grafana Alloy](https://grafana.com/docs/alloy/latest/) into `monitoring` (see `kubernetes/prometheus-values.yaml`, `loki-values.yaml`, `alloy-values.yaml`), then deploys the app into `chat-app`. Grafana picks up dashboard ConfigMaps labeled `grafana_dashboard=1` and a Loki datasource for container logs.
 
 Run deploy scripts from the `scripts/` directory:
 
@@ -94,11 +94,11 @@ kubectl apply -k ../kustomize/overlays/dev
 ./deploy-helm-stack.sh
 ```
 
-Both paths use the same resource names (`ai-chat`, `ai-chat-svc`, `ai-chat-db-svc`, `ai-chat-config`, `ai-chat-model-hpa`, etc.). The Helm release name must be `ai-chat` so templated names stay in sync with the plain manifests.
+Both **`deploy-k8s-stack.sh`** and **`deploy-helm-stack.sh`** install the same monitoring stack (Prometheus + Loki + Alloy into `monitoring`) from shared values in `kubernetes/` (`helm/monitoring/` symlinks those files). Kustomize overlays deploy the app only — no monitoring stack. The Helm app release name must be **`ai-chat`** so resource names match the plain manifests.
 
 **Ollama autoscaler:** `kubernetes/autoscaler.yaml` (plain kubectl), `kustomize/base/autoscaler.yaml`, and `helm/templates/autoscaler.yaml` define an HPA for the Ollama model Deployment (1–5 replicas). Tune limits in the manifest or via Helm (`autoscaler.minReplicas`, `autoscaler.maxReplicas`, `autoscaler.cpu.averageUtilization`, `autoscaler.memory.averageUtilization`).
 
-**Dashboards:** JSON lives in `grafana/`. The Helm chart loads them via `helm/dashboards/` (symlinks into `grafana/`). The plain-k8s script creates ConfigMaps with `kubectl create configmap … --from-file` from `grafana/`.
+**Dashboards:** JSON lives in `grafana/`. The Helm chart loads them via `helm/dashboards/` (symlinks into `grafana/`). The plain-k8s script creates ConfigMaps with `kubectl create configmap … --from-file` from `grafana/`. Open **AI Chat / Service Logs** for Loki log panels (pod + event filters).
 
 **MongoDB exporter:** The Helm chart installs `prometheus-mongodb-exporter` as a dependency (alias `mongodb-exporter`, `mongodb-exporter.enabled`, `--compatible-mode`, `--collect-all`, ServiceMonitor `release: prometheus`). The plain-k8s script installs the same exporter as a separate Helm release.
 
@@ -108,9 +108,11 @@ Both paths use the same resource names (`ai-chat`, `ai-chat-svc`, `ai-chat-db-sv
 # API (LoadBalancer — use minikube tunnel or cloud LB if EXTERNAL-IP is pending)
 kubectl -n chat-app get svc ai-chat-svc
 
-# Grafana (kube-prometheus-stack)
+# Grafana (metrics + Loki logs)
 kubectl -n monitoring port-forward svc/prometheus-grafana 3000:80
 # default login admin / prom-operator (unless changed in values)
+# Dashboards → AI Chat / Service Overview, AI Chat / Database Overview, AI Chat / Service Logs
+# Explore → Loki → {namespace="chat-app", container="ai-chat"} |= "{"
 ```
 
 Override demo credentials before production (`kubernetes/variables.yaml`, `helm/values.yaml`, or `helm upgrade --set secrets.password=...`).
@@ -140,6 +142,7 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 │
 ├── grafana/                  # Grafana dashboard JSON (source of truth)
 │   ├── chat-app.json         # API RED / Node.js / container metrics
+│   ├── app-logs.json         # Service Logs dashboard (Loki, chat-app namespace)
 │   └── mongodb.json          # MongoDB exporter dashboard
 │
 ├── kubernetes/               # Plain manifests (kubectl apply)
@@ -148,17 +151,21 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 │   ├── model.yaml            # Ollama Deployment, Service
 │   ├── autoscaler.yaml       # HPA for Ollama model (CPU + memory)
 │   ├── application.yaml      # API Deployment + LoadBalancer Service
-│   └── metrics.yaml          # Prometheus Operator ServiceMonitor
-├── kustomize/                # Kustomize app deploy (no ServiceMonitor / exporter)
-│   ├── base/                 # variables, database, model, autoscaler, application
+│   ├── metrics.yaml          # Prometheus Operator ServiceMonitor
+│   ├── prometheus-values.yaml # kube-prometheus-stack + Grafana Loki datasource
+│   ├── loki-values.yaml      # Loki SingleBinary + filesystem storage (Helm)
+│   └── alloy-values.yaml     # Alloy log shipping from chat-app (Helm)
+├── kustomize/                # Kustomize app deploy (no ServiceMonitor / exporter / monitoring)
+│   ├── base/                 # database, model, application, autoscaler
 │   └── overlays/
-│       ├── dev/            # namespace, config.env, secret.env → chat-app-dev
-│       └── prod/           # namespace, config.env, secret.env → chat-app-prod
+│       ├── dev/              # namespace chat-app-dev, config.env, secret.env
+│       └── prod/             # namespace chat-app-prod, config.env, secret.env
 │
 ├── helm/                     # Helm chart (parallel to kubernetes/)
 │   ├── Chart.yaml            # declares prometheus-mongodb-exporter dependency
 │   ├── Chart.lock            # pinned dependency versions (helm dependency update)
 │   ├── values.yaml           # image, ports, replicas, secrets, mongo exporter subchart
+│   ├── monitoring/           # symlinks → ../kubernetes/*-values.yaml (Loki, Alloy, Prometheus)
 │   ├── dashboards/           # symlinks → ../grafana/*.json (packaged by chart)
 │   └── templates/
 │       ├── variables.yaml    # ConfigMap + Secret
@@ -172,8 +179,9 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 │
 ├── scripts/
 │   ├── cluster.sh            # Minikube profile lifecycle (create/start/stop/delete/status)
-│   ├── deploy-k8s-stack.sh   # Prometheus stack, kubectl apply, dashboards, mongo-exporter
-│   └── deploy-helm-stack.sh  # Prometheus stack, helm upgrade --install ai-chat (mongo exporter dependency)
+│   ├── deploy-k8s-stack.sh   # Monitoring (Prometheus, Loki, Alloy) + kubectl apply + dashboards + mongo-exporter
+│   ├── deploy-helm-stack.sh  # Monitoring (Prometheus, Loki, Alloy) + helm upgrade --install ai-chat
+│   └── generate-load.sh      # Sample API traffic for metrics and log dashboards
 │
 └── tests/
     ├── integration/          # HTTP tests against the app

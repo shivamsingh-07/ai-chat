@@ -6,6 +6,7 @@ Reach the API (LoadBalancer external IP):
 Metrics: GET /metrics    Health: /health/live, /health/ready
 
 MongoDB metrics: mongodb-exporter subchart (ServiceMonitor scrape /metrics).
+Logs: deploy-helm-stack.sh installs Loki + Alloy; open Grafana dashboard "AI Chat / Service Logs".
 
 Override default Mongo credentials before production:
   helm upgrade {{ .Release.Name }} . --set secrets.password=<strong>

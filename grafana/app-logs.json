@@ -1,0 +1,296 @@
+{
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "description": "Application logs from Loki (chat-app namespace, ai-chat container).",
+    "editable": true,
+    "graphTooltip": 1,
+    "schemaVersion": 39,
+    "tags": [
+        "ai-chat",
+        "logs"
+    ],
+    "title": "AI Chat / Service Logs",
+    "uid": "ai-chat-service-logs",
+    "refresh": "10s",
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+        "list": [
+            {
+                "name": "datasource",
+                "label": "Data source",
+                "type": "datasource",
+                "query": "loki",
+                "current": {
+                    "selected": true,
+                    "text": "Loki",
+                    "value": "Loki"
+                },
+                "hide": 0,
+                "refresh": 1,
+                "regex": "",
+                "skipUrlSync": false
+            },
+            {
+                "name": "pod",
+                "label": "Pod",
+                "type": "query",
+                "datasource": {
+                    "type": "loki",
+                    "uid": "${datasource}"
+                },
+                "definition": "label_values({namespace=\"chat-app\", container=\"ai-chat\"}, pod)",
+                "query": "label_values({namespace=\"chat-app\", container=\"ai-chat\"}, pod)",
+                "refresh": 2,
+                "includeAll": true,
+                "allValue": ".*",
+                "multi": true,
+                "sort": 1,
+                "current": {
+                    "selected": true,
+                    "text": [
+                        "All"
+                    ],
+                    "value": [
+                        "$__all"
+                    ]
+                }
+            },
+            {
+                "name": "event",
+                "label": "Event",
+                "type": "custom",
+                "query": "chat.request,db.connected,db.error,db.message.saved,health.ready.fail,ollama.request.complete,ollama.request.failed,ollama.request.start,server.error,server.ready,server.shutdown,server.starting,session.created,session.deleted",
+                "options": [
+                    {
+                        "text": "chat.request",
+                        "value": "chat.request",
+                        "selected": false
+                    },
+                    {
+                        "text": "db.connected",
+                        "value": "db.connected",
+                        "selected": false
+                    },
+                    {
+                        "text": "db.error",
+                        "value": "db.error",
+                        "selected": false
+                    },
+                    {
+                        "text": "db.message.saved",
+                        "value": "db.message.saved",
+                        "selected": false
+                    },
+                    {
+                        "text": "health.ready.fail",
+                        "value": "health.ready.fail",
+                        "selected": false
+                    },
+                    {
+                        "text": "ollama.request.complete",
+                        "value": "ollama.request.complete",
+                        "selected": false
+                    },
+                    {
+                        "text": "ollama.request.failed",
+                        "value": "ollama.request.failed",
+                        "selected": false
+                    },
+                    {
+                        "text": "ollama.request.start",
+                        "value": "ollama.request.start",
+                        "selected": false
+                    },
+                    {
+                        "text": "server.error",
+                        "value": "server.error",
+                        "selected": false
+                    },
+                    {
+                        "text": "server.ready",
+                        "value": "server.ready",
+                        "selected": false
+                    },
+                    {
+                        "text": "server.shutdown",
+                        "value": "server.shutdown",
+                        "selected": false
+                    },
+                    {
+                        "text": "server.starting",
+                        "value": "server.starting",
+                        "selected": false
+                    },
+                    {
+                        "text": "session.created",
+                        "value": "session.created",
+                        "selected": false
+                    },
+                    {
+                        "text": "session.deleted",
+                        "value": "session.deleted",
+                        "selected": false
+                    }
+                ],
+                "includeAll": true,
+                "allValue": ".*",
+                "multi": false,
+                "sort": 1,
+                "current": {
+                    "selected": true,
+                    "text": [
+                        "All"
+                    ],
+                    "value": [
+                        "$__all"
+                    ]
+                }
+            }
+        ]
+    },
+    "panels": [
+        {
+            "id": 1,
+            "type": "timeseries",
+            "title": "Log lines per minute",
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 12,
+                "h": 6
+            },
+            "datasource": {
+                "type": "loki",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 20,
+                        "lineWidth": 1
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({namespace=\"chat-app\", container=\"ai-chat\", pod=~\"$pod\"} |= \"{\" | json | event=~\"$event\" [1m]))",
+                    "legendFormat": "lines",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "type": "timeseries",
+            "title": "Error-like lines per minute",
+            "description": "Matches log lines containing error (text) or Pino level 50.",
+            "gridPos": {
+                "x": 12,
+                "y": 0,
+                "w": 12,
+                "h": 6
+            },
+            "datasource": {
+                "type": "loki",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "color": {
+                        "mode": "fixed",
+                        "fixedColor": "red"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "fillOpacity": 20,
+                        "lineWidth": 1
+                    }
+                },
+                "overrides": []
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc"
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({namespace=\"chat-app\", container=\"ai-chat\", pod=~\"$pod\"} |= \"{\" | json | event=~\"$event\" |~ \"error|level.:50\" [1m]))",
+                    "legendFormat": "errors",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "type": "logs",
+            "title": "Live logs",
+            "description": "Pino JSON logs (one line per entry). Click a row for parsed fields.",
+            "gridPos": {
+                "x": 0,
+                "y": 6,
+                "w": 24,
+                "h": 14
+            },
+            "datasource": {
+                "type": "loki",
+                "uid": "${datasource}"
+            },
+            "options": {
+                "showTime": true,
+                "showLabels": false,
+                "showCommonLabels": false,
+                "wrapLogMessage": false,
+                "prettifyLogMessage": false,
+                "enableLogDetails": true,
+                "dedupStrategy": "none",
+                "sortOrder": "Descending"
+            },
+            "targets": [
+                {
+                    "expr": "{namespace=\"chat-app\", container=\"ai-chat\", pod=~\"$pod\"} |= \"{\" | json | event=~\"$event\"",
+                    "refId": "A"
+                }
+            ]
+        }
+    ]
+}

@@ -11,15 +11,30 @@ if ! helm version &>/dev/null; then
 	exit 1
 fi
 
-if ! helm list -n monitoring | grep -q "prometheus"; then
-	echo "Deploying Prometheus stack..."
-	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-	helm upgrade --install "prometheus" "prometheus-community/kube-prometheus-stack" \
-		--namespace "monitoring" \
-		--create-namespace \
-		--wait \
-		--timeout 300s
-fi
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
+
+echo "Deploying Prometheus stack..."
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+	--namespace monitoring \
+	--create-namespace \
+	-f ../kubernetes/prometheus-values.yaml \
+	--wait \
+	--timeout 300s
+
+echo "Deploying Loki..."
+helm upgrade --install loki grafana/loki \
+	--namespace monitoring \
+	-f ../kubernetes/loki-values.yaml \
+	--wait \
+	--timeout 300s
+
+echo "Deploying Grafana Alloy..."
+helm upgrade --install alloy grafana/alloy \
+	--namespace monitoring \
+	-f ../kubernetes/alloy-values.yaml \
+	--wait \
+	--timeout 300s
 
 kubectl create namespace "$NAMESPACE" 2>/dev/null || true
 
@@ -53,6 +68,13 @@ kubectl create configmap ai-chat-app-dashboard \
 
 kubectl create configmap ai-chat-mongodb-dashboard \
 	--from-file=mongodb.json="../grafana/mongodb.json" \
+	-n "$NAMESPACE" \
+	--dry-run=client -o yaml |
+	kubectl label --local -f - grafana_dashboard=1 -o yaml |
+	kubectl apply -f -
+
+kubectl create configmap ai-chat-app-logs-dashboard \
+	--from-file=app-logs.json="../grafana/app-logs.json" \
 	-n "$NAMESPACE" \
 	--dry-run=client -o yaml |
 	kubectl label --local -f - grafana_dashboard=1 -o yaml |

@@ -2,6 +2,9 @@
 
 set -e
 
+NAMESPACE="chat-app"
+MONITORING_NS="monitoring"
+
 cd "$(dirname "$0")"
 
 if ! helm version &>/dev/null; then
@@ -9,22 +12,37 @@ if ! helm version &>/dev/null; then
 	exit 1
 fi
 
-if ! helm list -n monitoring | grep -q "prometheus"; then
-	echo "Deploying Prometheus stack..."
-	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-	helm upgrade --install "prometheus" "prometheus-community/kube-prometheus-stack" \
-		--namespace "monitoring" \
-		--create-namespace \
-		--wait \
-		--timeout 300s
-fi
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
 
 echo "Updating Helm chart dependencies..."
 helm dependency update ../helm
 
+echo "Deploying Prometheus stack..."
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+	--namespace "$MONITORING_NS" \
+	--create-namespace \
+	-f ../helm/monitoring/prometheus-values.yaml \
+	--wait \
+	--timeout 300s
+
+echo "Deploying Loki..."
+helm upgrade --install loki grafana/loki \
+	--namespace "$MONITORING_NS" \
+	-f ../helm/monitoring/loki-values.yaml \
+	--wait \
+	--timeout 300s
+
+echo "Deploying Grafana Alloy..."
+helm upgrade --install alloy grafana/alloy \
+	--namespace "$MONITORING_NS" \
+	-f ../helm/monitoring/alloy-values.yaml \
+	--wait \
+	--timeout 300s
+
 echo "Deploying AI Chat app..."
-helm upgrade --install "ai-chat" "../helm" \
-	--namespace "chat-app" \
+helm upgrade --install ai-chat ../helm \
+	--namespace "$NAMESPACE" \
 	--create-namespace \
 	--wait \
 	--timeout 600s
