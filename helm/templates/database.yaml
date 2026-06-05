@@ -16,6 +16,7 @@ spec:
       containers:
         - name: {{ .Release.Name }}-db
           image: {{ .Values.database.image }}
+          imagePullPolicy: IfNotPresent
           env:
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
@@ -36,12 +37,18 @@ spec:
               cpu: 200m
           ports:
             - containerPort: {{ .Values.database.port }}
-          readinessProbe:
+          startupProbe:
             tcpSocket:
               port: {{ .Values.database.port }}
-            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
             timeoutSeconds: 5
-            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--eval", "db.adminCommand('ping')"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: {{ .Release.Name }}-data-pvc
               mountPath: /data/db

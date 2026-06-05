@@ -32,15 +32,21 @@ spec:
               cpu: 1000m
           ports:
             - containerPort: {{ .Values.ollama.port }}
-          readinessProbe:
+          startupProbe:
             exec:
               command:
                 - /bin/sh
                 - -c
                 - ollama list | grep -F "{{ .Values.ollama.model }}"
-            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 60
             timeoutSeconds: 15
-            failureThreshold: 5
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.ollama.port }}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: ollama-models
               mountPath: /root/.ollama

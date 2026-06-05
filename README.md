@@ -76,7 +76,7 @@ npm run lint    # Check code style
 
 Requires [Minikube](https://minikube.sigs.k8s.io/) (or another cluster), `kubectl`, and Helm. Use `scripts/cluster.sh` to create a local profile (`ai-chat`, Cilium CNI, metrics-server). The Ollama model Deployment is scaled by a HorizontalPodAutoscaler on CPU (70%) and memory (80%) utilization; metrics-server must be running for HPA to work.
 
-The plain-k8s script installs [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack), [Loki](https://grafana.com/docs/loki/latest/), and [Grafana Alloy](https://grafana.com/docs/alloy/latest/) into `monitoring` (see `kubernetes/prometheus-values.yaml`, `loki-values.yaml`, `alloy-values.yaml`), then deploys the app into `chat-app`. Grafana picks up dashboard ConfigMaps labeled `grafana_dashboard=1` and a Loki datasource for container logs.
+The plain-k8s script installs [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack), [Loki](https://grafana.com/docs/loki/latest/), and [Grafana Alloy](https://grafana.com/docs/alloy/latest/) into `monitoring` (Helm values in `kubernetes/monitoring/`), then deploys the app into `chat-app`. Grafana picks up dashboard ConfigMaps labeled `grafana_dashboard=1` and a Loki datasource for container logs.
 
 Run deploy scripts from the `scripts/` directory:
 
@@ -145,16 +145,17 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 │   ├── app-logs.json         # Service Logs dashboard (Loki, chat-app namespace)
 │   └── mongodb.json          # MongoDB exporter dashboard
 │
-├── kubernetes/               # Plain manifests (kubectl apply)
+├── kubernetes/               # Plain manifests (kubectl apply -f kubernetes/)
 │   ├── variables.yaml        # ai-chat-config + ai-chat-secrets
 │   ├── database.yaml         # MongoDB StatefulSet + Service
 │   ├── model.yaml            # Ollama Deployment, Service
 │   ├── autoscaler.yaml       # HPA for Ollama model (CPU + memory)
 │   ├── application.yaml      # API Deployment + LoadBalancer Service
 │   ├── metrics.yaml          # Prometheus Operator ServiceMonitor
-│   ├── prometheus-values.yaml # kube-prometheus-stack + Grafana Loki datasource
-│   ├── loki-values.yaml      # Loki SingleBinary + filesystem storage (Helm)
-│   └── alloy-values.yaml     # Alloy log shipping from chat-app (Helm)
+│   └── monitoring/           # Helm values (not kubectl manifests)
+│       ├── prometheus-values.yaml # kube-prometheus-stack + Grafana Loki datasource
+│       ├── loki-values.yaml  # Loki SingleBinary + filesystem storage
+│       └── alloy-values.yaml # Alloy log shipping from chat-app
 ├── kustomize/                # Kustomize app deploy (no ServiceMonitor / exporter / monitoring)
 │   ├── base/                 # database, model, application, autoscaler
 │   └── overlays/
@@ -165,7 +166,7 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 │   ├── Chart.yaml            # declares prometheus-mongodb-exporter dependency
 │   ├── Chart.lock            # pinned dependency versions (helm dependency update)
 │   ├── values.yaml           # image, ports, replicas, secrets, mongo exporter subchart
-│   ├── monitoring/           # symlinks → ../kubernetes/*-values.yaml (Loki, Alloy, Prometheus)
+│   ├── monitoring/           # symlinks → ../kubernetes/monitoring/*.yaml (Loki, Alloy, Prometheus)
 │   ├── dashboards/           # symlinks → ../grafana/*.json (packaged by chart)
 │   └── templates/
 │       ├── variables.yaml    # ConfigMap + Secret

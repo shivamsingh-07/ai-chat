@@ -18,21 +18,21 @@ echo "Deploying Prometheus stack..."
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
 	--namespace monitoring \
 	--create-namespace \
-	-f ../kubernetes/prometheus-values.yaml \
+	-f ../kubernetes/monitoring/prometheus-values.yaml \
 	--wait \
 	--timeout 300s
 
 echo "Deploying Loki..."
 helm upgrade --install loki grafana/loki \
 	--namespace monitoring \
-	-f ../kubernetes/loki-values.yaml \
+	-f ../kubernetes/monitoring/loki-values.yaml \
 	--wait \
 	--timeout 300s
 
 echo "Deploying Grafana Alloy..."
 helm upgrade --install alloy grafana/alloy \
 	--namespace monitoring \
-	-f ../kubernetes/alloy-values.yaml \
+	-f ../kubernetes/monitoring/alloy-values.yaml \
 	--wait \
 	--timeout 300s
 

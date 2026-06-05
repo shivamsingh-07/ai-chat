@@ -16,6 +16,7 @@ spec:
       containers:
         - name: ai-chat-db
           image: mongo
+          imagePullPolicy: IfNotPresent
           env:
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
@@ -36,12 +37,18 @@ spec:
               cpu: 200m
           ports:
             - containerPort: 27017
-          readinessProbe:
+          startupProbe:
             tcpSocket:
               port: 27017
-            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
             timeoutSeconds: 5
-            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command: ["mongosh", "--eval", "db.adminCommand('ping')"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: ai-chat-data-pvc
               mountPath: /data/db
