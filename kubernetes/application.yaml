@@ -12,6 +12,13 @@ spec:
       labels:
         app: ai-chat
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: busybox
+          command:
+            - sh
+            - -c
+            - until nc -z ai-chat-db-svc 27017; do echo "waiting for mongo..."; sleep 5; done
       containers:
         - name: ai-chat
           image: abstergo07/ai-chat
@@ -39,7 +46,6 @@ spec:
             httpGet:
               path: /health/live
               port: 5000
-            initialDelaySeconds: 180
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3

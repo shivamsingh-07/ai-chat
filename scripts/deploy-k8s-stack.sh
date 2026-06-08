@@ -14,6 +14,9 @@ fi
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
 helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
 
+echo "Updating Helm repositories..."
+helm repo update
+
 echo "Deploying Prometheus stack..."
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
 	--namespace monitoring \

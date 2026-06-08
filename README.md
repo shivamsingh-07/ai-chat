@@ -117,6 +117,95 @@ kubectl -n monitoring port-forward svc/prometheus-grafana 3000:80
 
 Override demo credentials before production (`kubernetes/variables.yaml`, `helm/values.yaml`, or `helm upgrade --set secrets.password=...`).
 
+## CI/CD with Jenkins
+
+`Jenkinsfile` defines a path-gated pipeline:
+
+- **CI** — runs when files under `app/**` change: install deps, lint + test (parallel), `docker build`, Trivy security scan (fails on HIGH/CRITICAL), then push to Docker Hub.
+- **CD: Deploy Kubernetes Manifests** — runs when `app/**` or `kubernetes/**` change: `kubectl apply -f kubernetes/` and waits for the rollout.
+- **Notifications** — a `post` block sends a Discord message (with the Trivy report attached) on every build.
+
+Jenkins runs as a Docker container defined in `jenkins-compose.yaml` (host network, the host Docker socket and binary mounted so it can build/push images, and a `jenkins_home` volume).
+
+### 1. Start Jenkins
+
+```bash
+./scripts/deploy-jenkins.sh
+```
+
+This brings up the container (`docker compose -f jenkins-compose.yaml up -d`) and installs `kubectl` and `trivy` inside it.
+Get the initial admin password with:
+
+```bash
+docker compose -f jenkins-compose.yaml exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+> Requires Docker + Docker Compose v2 on the host. `kubectl` and `trivy` are installed into the container layer, so re-running the script reinstalls them after a container recreate.
+
+### 2. Unlock Jenkins and install plugins
+
+1. Open `http://127.0.0.1:8080`, unlock with the initial admin password, and create the admin user.
+2. Install **Suggested plugins**, plus these (Manage Jenkins → Plugins): **Docker Pipeline**, **Kubernetes CLI**, **NodeJS**, **Pipeline**, **Git**, **Discord Notifier**.
+
+### 3. Configure the NodeJS tool
+
+Manage Jenkins → **Tools** → **NodeJS installations** → Add:
+
+- **Name:** `node-24-lts` (must match the `tools` block in `Jenkinsfile`)
+- **Install automatically** → a Node 24 LTS version.
+- **Global npm packages to install:** `yarn`
+
+### 4. Add credentials
+
+Manage Jenkins → **Credentials** → **(global)** → Add:
+
+| ID                | Kind                   | Value                                                          |
+| :---------------- | :--------------------- | :------------------------------------------------------------- |
+| `dockerhub-login` | Username with password | Docker Hub username + an access token                          |
+| `jenkins-token`   | Secret text            | A `jenkins` ServiceAccount token (minted below)                |
+| `k8s-api-server`  | Secret text            | Cluster API server URL, e.g. `https://<control-plane-ip>:8443` |
+| `discord-webhook` | Secret text            | Discord channel webhook URL for build notifications            |
+
+> `k8s-api-server` and `discord-webhook` are bound in the top-level `environment` block, so both must exist before any build runs (every build resolves them at startup).
+
+Mint the ServiceAccount token for the CD stage:
+
+```bash
+kubectl create serviceaccount jenkins -n default
+kubectl create clusterrolebinding jenkins-admin \
+  --clusterrole=cluster-admin --serviceaccount=default:jenkins
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jenkins-token
+  namespace: default
+  annotations:
+    kubernetes.io/service-account.name: jenkins
+type: kubernetes.io/service-account-token
+EOF
+kubectl get secret jenkins-token -n default -o jsonpath='{.data.token}' | base64 -d; echo
+```
+
+### 5. Point the deploy stage at your cluster
+
+Set the `k8s-api-server` credential to your API server URL. Find it with:
+
+```bash
+kubectl cluster-info
+```
+
+### 6. Create the pipeline job
+
+1. **New Item** → name it **`ai-chat-app`** → select **Pipeline** → **OK**.
+2. Under **Pipeline**, set **Definition** to **Pipeline script from SCM**.
+3. **SCM:** Git → **Repository URL:** your repo URL → **Branch:** `*/master`.
+4. **Script Path:** `Jenkinsfile`.
+5. Under **Build Triggers**, enable **GitHub hook trigger for GITScm polling** (with a webhook) or **Poll SCM** so the `changeset` conditions have a changelog to diff against.
+6. **Save**, then **Build Now**.
+
+> The first build has no prior commit to compare against, so `changeset` matches nothing and the CI/CD stages are skipped. Push a commit (or build again) and the stages trigger based on whether `app/**` or `kubernetes/**` changed.
+
 ## Project Structure
 
 ```text
@@ -126,6 +215,8 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 ├── yarn.lock
 ├── Dockerfile                # Multi-stage Node image for the API
 ├── docker-compose.yaml       # Local stack: API, MongoDB, Ollama
+├── jenkins-compose.yaml      # Jenkins controller (docker compose)
+├── Jenkinsfile               # CI (build/push) + CD (kubectl apply) pipeline
 ├── eslint.config.js
 │
 ├── app/
@@ -182,6 +273,8 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 │   ├── cluster.sh            # Minikube profile lifecycle (create/start/stop/delete/status)
 │   ├── deploy-k8s-stack.sh   # Monitoring (Prometheus, Loki, Alloy) + kubectl apply + dashboards + mongo-exporter
 │   ├── deploy-helm-stack.sh  # Monitoring (Prometheus, Loki, Alloy) + helm upgrade --install ai-chat
+│   ├── deploy-jenkins.sh     # Jenkins via docker compose + kubectl + Trivy
+│   ├── security-scan.sh      # Trivy image scan → trivy-report.log + PASS/FAIL verdict
 │   └── generate-load.sh      # Sample API traffic for metrics and log dashboards
 │
 └── tests/

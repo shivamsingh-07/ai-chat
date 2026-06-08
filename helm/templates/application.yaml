@@ -12,6 +12,13 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: busybox
+          command:
+            - sh
+            - -c
+            - until nc -z {{ .Release.Name }}-db-svc {{ .Values.database.port }}; do echo "waiting for mongo..."; sleep 5; done
       containers:
         - name: {{ .Release.Name }}
           image: {{ .Values.app.image }}
@@ -39,7 +46,6 @@ spec:
             httpGet:
               path: /health/live
               port: {{ .Values.app.port }}
-            initialDelaySeconds: 180
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3

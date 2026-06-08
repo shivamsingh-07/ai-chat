@@ -19,8 +19,14 @@ create_cluster() {
 	kubectl label node ${PROFILE}-m02 node-role.kubernetes.io/worker=worker
 	kubectl label node ${PROFILE}-m03 node-role.kubernetes.io/worker=worker
 
+	echo "🚫 Tainting control-plane..."
+	kubectl taint nodes ${PROFILE} node-role.kubernetes.io/control-plane=:NoSchedule --overwrite
+
 	echo "📊 Enabling metrics server..."
 	minikube addons enable metrics-server -p $PROFILE
+
+	echo "💾 Enabling rancher local-path storage provisioner..."
+	minikube addons enable storage-provisioner-rancher -p $PROFILE
 
 	echo "✅ Cluster ready!"
 	kubectl get nodes -o wide
