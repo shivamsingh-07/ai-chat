@@ -36,6 +36,8 @@ start_cluster() {
 	if cluster_exists; then
 		echo "▶️ Starting existing cluster..."
 		minikube start -p $PROFILE
+		echo "✅ Cluster ready!"
+		kubectl get nodes -o wide
 	else
 		echo "⚠️ Cluster not found. Creating a new one..."
 		create_cluster

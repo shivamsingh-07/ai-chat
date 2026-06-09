@@ -19,7 +19,7 @@ pipeline {
                 changeset 'app/**'
             }
             steps {
-                sh 'yarn install --frozen-lockfile'
+                sh 'yarn install --frozen-lockfile > build.log 2>&1'
             }
         }
 
@@ -30,12 +30,12 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'yarn lint'
+                        sh 'yarn lint >> build.log 2>&1'
                     }
                 }
                 stage('Test') {
                     steps {
-                        sh 'yarn test'
+                        sh 'yarn test >> build.log 2>&1'
                     }
                 }
             }
@@ -46,7 +46,7 @@ pipeline {
                 changeset 'app/**'
             }
             steps {
-                sh 'docker build -t "$IMAGE:$IMAGE_TAG" -t "$IMAGE:latest" .'
+                sh 'docker build -t "$IMAGE:$IMAGE_TAG" -t "$IMAGE:latest" . > build.log 2>&1'
             }
         }
 
@@ -55,7 +55,7 @@ pipeline {
                 changeset 'app/**'
             }
             steps {
-                sh './scripts/security-scan.sh "$IMAGE:$IMAGE_TAG"'
+                sh './scripts/security-scan.sh "$IMAGE:$IMAGE_TAG" > build.log 2>&1'
                 archiveArtifacts artifacts: 'trivy-report.log'
                 script {
                     env.SCAN_VERDICT = sh(script: 'grep -q "VERDICT: PASS" trivy-report.log', returnStatus: true) == 0 ? 'PASS' : 'FAIL'
@@ -72,8 +72,8 @@ pipeline {
             }
             steps {
                 withDockerRegistry(credentialsId: 'dockerhub-login', url: 'https://index.docker.io/v1/') {
-                    sh 'docker push "$IMAGE:$IMAGE_TAG"'
-                    sh 'docker push "$IMAGE:latest"'
+                    sh 'docker push "$IMAGE:$IMAGE_TAG" > build.log 2>&1'
+                    sh 'docker push "$IMAGE:latest" >> build.log 2>&1'
                 }
             }
         }
@@ -88,9 +88,8 @@ pipeline {
             steps {
                 withKubeConfig(credentialsId: 'jenkins-token', serverUrl: env.API_URL) {
                     sh '''
-                        kubectl create namespace "$NAMESPACE" 2>/dev/null || true
-                        kubectl apply -n "$NAMESPACE" -f kubernetes/
-                        kubectl rollout status -n "$NAMESPACE" deploy/ai-chat --timeout=300s
+                        kubectl apply -n "$NAMESPACE" -f kubernetes/ > build.log 2>&1
+                        kubectl rollout status -n "$NAMESPACE" deploy/ai-chat --timeout=300s >> build.log 2>&1
                     '''
                 }
             }
@@ -98,26 +97,43 @@ pipeline {
     }
 
     post {
-        always {
+        success {
+            discordSend title: 'AI-Chat Pipeline Report',
+            description: "✅ Pipeline succeeded.",
+            footer: "Build #${env.BUILD_NUMBER}",
+            link: env.BUILD_URL,
+            result: 'SUCCESS',
+            webhookURL: env.DISCORD_WEBHOOK
+        }
+
+        failure {
             script {
-                def result = currentBuild.currentResult
                 def description
-                if (result == 'SUCCESS') {
-                    description = "✅ Pipeline succeeded. Image ${env.IMAGE}:${env.IMAGE_TAG} pushed."
-                } else if (env.SCAN_VERDICT == 'FAIL') {
-                    description = "🛑 Blocked: Trivy found HIGH/CRITICAL vulnerabilities in ${env.IMAGE}:${env.IMAGE_TAG}. Image was not pushed — see the attached trivy-report.log."
-                } else {
-                    description = "❌ Pipeline failed at a build/deploy step. Check the console log: ${env.BUILD_URL}console"
+                def logFile = env.SCAN_VERDICT == 'FAIL' ? 'trivy-report.log' : 'build.log'
+                withCredentials([string(credentialsId: 'gemini-api-key', variable: 'GEMINI_API_KEY')]) {
+                    def out = sh(
+                        script: 'python3 scripts/analyze-logs.py --api-key "$GEMINI_API_KEY" --log build.log',
+                        returnStdout: true,
+                    ).trim()
+                    def analysis = readJSON text: out
+                    if (analysis.error) {
+                        description = "❌ Pipeline failed. Log analysis unavailable: ${analysis.error}"
+                    } else {
+                        description = "❌ Pipeline failed.\n\n**Root Cause:** ${analysis.cause}\n\n**Suggested Fix:** ${analysis.fix}"
+                    }
                 }
 
                 discordSend title: 'AI-Chat Pipeline Report',
                 description: description,
                 footer: "Build #${env.BUILD_NUMBER}",
-                customFile: 'trivy-report.log',
+                customFile: logFile,
                 link: env.BUILD_URL,
-                result: result,
+                result: 'FAILURE',
                 webhookURL: env.DISCORD_WEBHOOK
             }
+        }
+
+        cleanup {
             cleanWs()
         }
     }

@@ -123,7 +123,7 @@ Override demo credentials before production (`kubernetes/variables.yaml`, `helm/
 
 - **CI** — runs when files under `app/**` change: install deps, lint + test (parallel), `docker build`, Trivy security scan (fails on HIGH/CRITICAL), then push to Docker Hub.
 - **CD: Deploy Kubernetes Manifests** — runs when `app/**` or `kubernetes/**` change: `kubectl apply -f kubernetes/` and waits for the rollout.
-- **Notifications** — a `post` block sends a Discord message (with the Trivy report attached) on every build.
+- **Notifications** — `post { success }` sends a Discord success message; `post { failure }` runs `scripts/analyze-logs.py` on the captured `build.log` and posts the AI-generated **cause** and **fix** to Discord.
 
 Jenkins runs as a Docker container defined in `jenkins-compose.yaml` (host network, the host Docker socket and binary mounted so it can build/push images, and a `jenkins_home` volume).
 
@@ -145,7 +145,7 @@ docker compose -f jenkins-compose.yaml exec jenkins cat /var/jenkins_home/secret
 ### 2. Unlock Jenkins and install plugins
 
 1. Open `http://127.0.0.1:8080`, unlock with the initial admin password, and create the admin user.
-2. Install **Suggested plugins**, plus these (Manage Jenkins → Plugins): **Docker Pipeline**, **Kubernetes CLI**, **NodeJS**, **Pipeline**, **Git**, **Discord Notifier**.
+2. Install **Suggested plugins**, plus these (Manage Jenkins → Plugins): **Docker Pipeline**, **Kubernetes CLI**, **NodeJS**, **Pipeline**, **Pipeline Utility Steps** (for `readJSON`), **Git**, **Discord Notifier**.
 
 ### 3. Configure the NodeJS tool
 
@@ -165,8 +165,9 @@ Manage Jenkins → **Credentials** → **(global)** → Add:
 | `jenkins-token`   | Secret text            | A `jenkins` ServiceAccount token (minted below)                |
 | `k8s-api-server`  | Secret text            | Cluster API server URL, e.g. `https://<control-plane-ip>:8443` |
 | `discord-webhook` | Secret text            | Discord channel webhook URL for build notifications            |
+| `gemini-api-key`  | Secret text            | Gemini API key — used by the failure handler to analyze logs   |
 
-> `k8s-api-server` and `discord-webhook` are bound in the top-level `environment` block, so both must exist before any build runs (every build resolves them at startup).
+> `k8s-api-server` and `discord-webhook` are bound in the top-level `environment` block, so both must exist before any build runs (every build resolves them at startup). `gemini-api-key` is used only by the `failure` handler.
 
 Mint the ServiceAccount token for the CD stage:
 
