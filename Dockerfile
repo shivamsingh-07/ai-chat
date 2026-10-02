@@ -12,6 +12,16 @@ FROM node:24-alpine
 
 WORKDIR /app
 
+# Runtime only needs the node binary. Drop bundled npm/corepack so Trivy
+# does not fail the image on HIGH/CRITICAL CVEs in npm's nested deps
+# (brace-expansion, ip-address, tar, undici, …).
+RUN rm -rf \
+    /usr/local/lib/node_modules/npm \
+    /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm \
+    /usr/local/bin/npx \
+    /usr/local/bin/corepack
+
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 
 COPY --chown=node:node . .

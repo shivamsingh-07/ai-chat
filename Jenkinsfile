@@ -1,5 +1,5 @@
-def emptyChangelog() {
-    return currentBuild.changeSets == null || currentBuild.changeSets.isEmpty()
+def isManualBuild() {
+    return !currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause').isEmpty()
 }
 
 pipeline {
@@ -21,8 +21,8 @@ pipeline {
         stage('Install Dependencies') {
             when {
                 anyOf {
+                    expression { isManualBuild() }
                     changeset 'app/**'
-                    expression { emptyChangelog() }
                 }
             }
             steps {
@@ -33,8 +33,8 @@ pipeline {
         stage('Quality Checks') {
             when {
                 anyOf {
+                    expression { isManualBuild() }
                     changeset 'app/**'
-                    expression { emptyChangelog() }
                 }
             }
             parallel {
@@ -54,8 +54,8 @@ pipeline {
         stage('Build Image') {
             when {
                 anyOf {
+                    expression { isManualBuild() }
                     changeset 'app/**'
-                    expression { emptyChangelog() }
                 }
             }
             steps {
@@ -66,8 +66,8 @@ pipeline {
         stage('Security Scan') {
             when {
                 anyOf {
+                    expression { isManualBuild() }
                     changeset 'app/**'
-                    expression { emptyChangelog() }
                 }
             }
             steps {
@@ -85,8 +85,8 @@ pipeline {
         stage('Push Image') {
             when {
                 anyOf {
+                    expression { isManualBuild() }
                     changeset 'app/**'
-                    expression { emptyChangelog() }
                 }
             }
             steps {
@@ -100,9 +100,9 @@ pipeline {
         stage('Deploy Kubernetes Manifests') {
             when {
                 anyOf {
+                    expression { isManualBuild() }
                     changeset 'app/**'
                     changeset 'kubernetes/**'
-                    expression { emptyChangelog() }
                 }
             }
             steps {

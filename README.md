@@ -300,8 +300,8 @@ Use the token (and cluster CA/API URL) when configuring the `jenkins-token` and 
 
 Notes:
 
-- An empty SCM changelog (first build, or Build Now with no new commits) runs all gated stages once so the path filters have a baseline.
-- After that, stages still follow `app/**` / `kubernetes/**` changesets.
+- **Manual Build Now:** all gated stages run (path filters are skipped).
+- **Automatic triggers** (SCM / webhook / timer): stages follow `app/**` / `kubernetes/**` changesets.
 - Trivy failures fail the build; report is archived as `trivy-report.log`.
 - On failure, `scripts/analyze-logs.py` uses Gemini to summarize root cause and a suggested fix in Discord.
 
