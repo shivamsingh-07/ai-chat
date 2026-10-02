@@ -1,32 +1,32 @@
 # AI ChatBot
 
-AI chat application built with Express.js, MongoDB, and Ollama. The repository includes three deployment packaging options, a full observability stack, and a path-gated Jenkins pipeline with Discord notifications and Gemini-assisted failure analysis.
+An AI chat app (Express, MongoDB, Ollama) that runs on Kubernetes, with monitoring baked in and a Jenkins pipeline that builds, scans, pushes, and deploys for you.
 
-| Area          | Technology                                                |
-| ------------- | --------------------------------------------------------- |
-| Application   | Node.js 24, Express, MongoDB, Ollama                      |
-| Packaging     | Docker, Docker Compose, Helm, Kustomize, plain manifests  |
-| Cluster       | Minikube (Cilium CNI, metrics-server, local-path storage) |
-| Observability | Prometheus, Loki, Grafana Alloy, Grafana                  |
-| CI/CD         | Jenkins, Trivy, Discord, Gemini                           |
+| Area       | What we use                                           |
+| ---------- | ----------------------------------------------------- |
+| App        | Node.js 24, Express, MongoDB, Ollama                  |
+| Packaging  | Docker, Helm, Kustomize, plain manifests              |
+| Cluster    | Minikube (Cilium, metrics-server, local-path storage) |
+| Monitoring | Prometheus, Loki, Grafana Alloy, Grafana              |
+| CI/CD      | Jenkins, Trivy, Discord, Gemini                       |
 
 ---
 
-## Architecture
+## How it fits together
 
 ```text
-Developer / Git push
+Git push / manual build
         │
         ▼
-   Jenkins pipeline
+   Jenkins
    ├── app/** changed
-   │     → yarn install → lint || test → docker build → Trivy → push
+   │     → install → lint/test → build image → Trivy → push
    └── app/** or kubernetes/** changed
-         → kubectl apply → rollout status
+         → ensure namespace → apply manifests → wait for rollout
         │
         ▼
  Docker Hub ──► Kubernetes (chat-app)
-                    ├── ai-chat (API + UI)
+                    ├── API + UI
                     ├── MongoDB
                     ├── Ollama (+ HPA)
                     └── monitoring/
@@ -35,112 +35,41 @@ Developer / Git push
 
 ---
 
-## Prerequisites
+## What you need on the machine
 
-Install the following on the host:
+| Tool     | Why                                                 |
+| -------- | --------------------------------------------------- |
+| Docker   | Build images and run Jenkins                        |
+| Minikube | Local Kubernetes cluster                            |
+| kubectl  | Talk to the cluster (also mounted into Jenkins)     |
+| Trivy    | Scan images before push (also mounted into Jenkins) |
+| Helm     | Install the monitoring stack                        |
 
-| Tool            | Purpose                                        |
-| --------------- | ---------------------------------------------- |
-| Docker          | Images, Compose, Jenkins container             |
-| Minikube        | Local Kubernetes cluster                       |
-| kubectl         | Cluster interaction; bind-mounted into Jenkins |
-| Trivy           | Image scanning; bind-mounted into Jenkins      |
-| Helm            | Monitoring charts and Helm deploy path         |
-| Node.js ≥ 24.11 | Local app development                          |
-| Yarn            | Package management                             |
+Quick sanity check:
+
+```bash
+docker version
+minikube version
+kubectl version --client
+helm version
+trivy --version
+```
 
 ---
 
-## Environment setup
+## Setup
 
-### Application variables
+Do these in order. Later steps assume earlier ones succeeded.
 
-Create a local `.env` in the repository root (gitignored). Example for local development:
-
-```env
-PORT=5000
-NODE_ENV=development
-
-MONGO_HOST=127.0.0.1:27017
-MONGO_DB=ai-chat
-MONGO_USER=admin
-MONGO_PASSWORD=<your-password>
-
-OLLAMA_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=smollm2:135m
-```
-
-| Variable                        | Description                                 |
-| ------------------------------- | ------------------------------------------- |
-| `PORT`                          | HTTP port for the Express server            |
-| `NODE_ENV`                      | Runtime mode (`development` / `production`) |
-| `MONGO_HOST`                    | MongoDB host:port                           |
-| `MONGO_DB`                      | Database name                               |
-| `MONGO_USER` / `MONGO_PASSWORD` | MongoDB credentials                         |
-| `OLLAMA_URL`                    | Ollama base URL                             |
-| `OLLAMA_MODEL`                  | Model pulled and used for chat              |
-
-### Kubernetes configuration
-
-Cluster config and secrets live in:
-
-- Manifests: `kubernetes/variables.yaml` (ConfigMap + Secret)
-- Helm: `helm/values.yaml` (`secrets` and service settings)
-
-Replace demo credentials before any shared or non-local use.
-
-### Docker Compose overrides
-
-`docker-compose.yaml` wires the app to in-compose services (`database`, `ollama`). You do not need a root `.env` for Compose unless you want to override those defaults.
-
----
-
-## Quick start options
-
-### 1. Local full stack (Docker Compose)
-
-Runs the API, MongoDB, and Ollama without Kubernetes:
-
-```bash
-docker compose up --build
-```
-
-Application: `http://127.0.0.1:5000`
-
-### 2. Local app only (Node)
-
-With MongoDB and Ollama already reachable (Compose services, or host installs):
-
-```bash
-yarn install
-yarn dev
-```
-
-Useful scripts:
-
-```bash
-yarn lint
-yarn test
-yarn start
-```
-
-### 3. Local Kubernetes cluster + stack
-
-#### Create the cluster
+### 1. Create the cluster
 
 ```bash
 ./scripts/cluster.sh create
 ```
 
-This Minikube profile (`ai-chat`) provides:
+That spins up a Minikube profile named `ai-chat` with three nodes (one control-plane, two workers), Cilium, metrics-server, and local-path storage. Workers get a worker role label; the control-plane is tainted so workloads stay on workers.
 
-- 3 nodes (1 control-plane + 2 workers)
-- Cilium CNI
-- Worker role labels and control-plane taint
-- metrics-server
-- Rancher local-path storage provisioner
-
-Other cluster commands:
+Day-to-day:
 
 ```bash
 ./scripts/cluster.sh status
@@ -149,100 +78,96 @@ Other cluster commands:
 ./scripts/cluster.sh delete
 ```
 
-#### Deploy the stack
-
-Pick one packaging path:
-
-```bash
-# Plain manifests + monitoring (recommended default)
-./scripts/deploy-k8s-stack.sh
-
-# Helm chart + monitoring
-./scripts/deploy-helm-stack.sh
-
-# Kustomize overlays (app only; deploy monitoring separately if needed)
-kubectl apply -k kustomize/overlays/dev
-kubectl apply -k kustomize/overlays/prod
-```
-
-| Path          | Contents                                                         |
-| ------------- | ---------------------------------------------------------------- |
-| `kubernetes/` | App manifests + monitoring Helm values                           |
-| `helm/`       | Chart mirroring the manifests                                    |
-| `kustomize/`  | Base + `dev` / `prod` overlays (`chat-app-dev`, `chat-app-prod`) |
-
-#### Verify
+Check that nodes are up:
 
 ```bash
 kubectl get nodes -o wide
-kubectl -n chat-app get pods,svc
+```
+
+### 2. Install monitoring (do this before Jenkins deploys)
+
+The app manifests include a `ServiceMonitor`. That resource only exists after kube-prometheus-stack is installed. If you skip this step, the first Jenkins deploy will fail on the CRD.
+
+Easiest path — monitoring plus a first app deploy in one go:
+
+```bash
+./scripts/deploy-k8s-stack.sh
+```
+
+That script will:
+
+1. Install kube-prometheus-stack in `monitoring` (this brings in the ServiceMonitor CRDs)
+2. Install Loki and Grafana Alloy in `monitoring`
+3. Deploy the app into `chat-app` (database, model, API, HPA, ServiceMonitor, Grafana dashboards)
+
+If you only want monitoring for now:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring --create-namespace \
+  -f kubernetes/monitoring/prometheus-values.yaml \
+  --wait --timeout 300s
+
+helm upgrade --install loki grafana/loki \
+  --namespace monitoring \
+  -f kubernetes/monitoring/loki-values.yaml \
+  --wait --timeout 300s
+
+helm upgrade --install alloy grafana/alloy \
+  --namespace monitoring \
+  -f kubernetes/monitoring/alloy-values.yaml \
+  --wait --timeout 300s
+```
+
+Make sure things landed:
+
+```bash
+kubectl get crd servicemonitors.monitoring.coreos.com
 kubectl -n monitoring get pods
+kubectl -n chat-app get pods,svc
 ```
 
----
+Other ways to ship the app later (monitoring must already be there):
 
-## Observability
+| Approach                | Command                                                 |
+| ----------------------- | ------------------------------------------------------- |
+| Helm (app + monitoring) | `./scripts/deploy-helm-stack.sh`                        |
+| Kustomize (app only)    | `kubectl apply -k kustomize/overlays/dev` or `.../prod` |
 
-Monitoring is installed into the `monitoring` namespace by the deploy scripts.
+App config and secrets live in `kubernetes/variables.yaml` (or `helm/values.yaml` if you use Helm). The defaults are fine for a lab — change them before anyone else uses the cluster.
 
-```bash
-# Application service
-kubectl -n chat-app get svc ai-chat-svc
+Jenkins creates the `chat-app` namespace on deploy if it is missing. You do not need to create it by hand.
 
-# Grafana UI
-kubectl -n monitoring port-forward svc/prometheus-grafana 3000:80
-```
+### 3. Start Jenkins
 
-- URL: `http://127.0.0.1:3000`
-- Default login: `admin` / `prom-operator` (change before shared use)
-- Dashboards: Service Overview, Database Overview, Service Logs (`grafana/`)
+Jenkins expects Docker, kubectl, and Trivy on the host at these paths (they are bind-mounted in):
 
-The app exposes `/metrics` and a readiness check against MongoDB and Ollama. Alloy ships container logs to Loki; a ServiceMonitor scrapes the application.
-
-Optional load generation:
-
-```bash
-./scripts/generate-load.sh
-```
-
----
-
-## CI/CD with Jenkins
-
-The Declarative Pipeline in `Jenkinsfile` is path-gated:
-
-| Change set                  | Stages                                                                       |
-| --------------------------- | ---------------------------------------------------------------------------- |
-| `app/**`                    | Install → Lint \| Test → Build image → Trivy (HIGH/CRITICAL gate) → Push     |
-| `app/**` or `kubernetes/**` | `kubectl apply -f kubernetes/` + rollout wait                                |
-| Always (post)               | Discord success/failure; on failure, Gemini analyzes logs and suggests a fix |
-
-Image: `abstergo07/ai-chat:<BUILD_NUMBER>` and `:latest`  
-Namespace: `chat-app`
-
-### 1. Start Jenkins
-
-Ensure Docker, `kubectl`, and Trivy are installed on the host first (`jenkins-compose.yaml` bind-mounts them into the container):
-
-| Host path                | Mounted in Jenkins as    |
+| On the host              | Inside Jenkins           |
 | ------------------------ | ------------------------ |
 | `/var/run/docker.sock`   | `/var/run/docker.sock`   |
 | `/usr/bin/docker`        | `/usr/local/bin/docker`  |
 | `/usr/local/bin/kubectl` | `/usr/local/bin/kubectl` |
 | `/usr/local/bin/trivy`   | `/usr/local/bin/trivy`   |
 
+Then:
+
 ```bash
 ./scripts/deploy-jenkins.sh
 ```
 
-This starts Jenkins from `jenkins-compose.yaml` (host networking, named volume `jenkins-data`) and installs only `python3` inside the container (used by Gemini log analysis).
+That starts Jenkins with host networking and a `jenkins-data` volume, and installs Python 3 inside the container so failure analysis can run.
 
-Open: `http://127.0.0.1:8080`
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080).
 
-### 2. Unlock and configure Jenkins
+### 4. Unlock Jenkins and add plugins
 
-1. Retrieve the initial admin password from the container logs or `/var/jenkins_home/secrets/initialAdminPassword`.
-2. Install suggested plugins, then add:
+1. Grab the initial admin password from the container logs or `/var/jenkins_home/secrets/initialAdminPassword`.
+2. Walk through the setup wizard.
+3. Install the suggested plugins, then add these if they are not already there:
    - Docker Pipeline
    - Kubernetes CLI
    - NodeJS
@@ -250,21 +175,9 @@ Open: `http://127.0.0.1:8080`
    - Pipeline Utility Steps
    - Git
    - Discord Notifier
-3. **Manage Jenkins → Tools → NodeJS installations**
-   - Name: `node-24-lts` (must match `Jenkinsfile`)
-   - Global npm packages: `yarn`
+4. Under **Manage Jenkins → Tools → NodeJS**, add an installation named exactly `node-24-lts` and include `yarn` as a global npm package. The pipeline looks for that name.
 
-### 3. Create Jenkins credentials
-
-| Credential ID     | Type                           | Purpose                                     |
-| ----------------- | ------------------------------ | ------------------------------------------- |
-| `dockerhub-login` | Username/password              | Push images to Docker Hub                   |
-| `jenkins-token`   | Secret file / kubeconfig entry | Authenticate `kubectl` to the cluster       |
-| `k8s-api-server`  | Secret text                    | Kubernetes API URL (`kubectl cluster-info`) |
-| `discord-webhook` | Secret text                    | Discord notifications                       |
-| `gemini-api-key`  | Secret text                    | Failure log analysis                        |
-
-### 4. Create a cluster ServiceAccount for Jenkins
+### 5. Give Jenkins access to the cluster
 
 ```bash
 kubectl create serviceaccount jenkins -n default
@@ -288,45 +201,96 @@ kubectl get secret jenkins-token -n default \
   -o jsonpath='{.data.token}' | base64 -d; echo
 ```
 
-Use the token (and cluster CA/API URL) when configuring the `jenkins-token` and `k8s-api-server` credentials. Prefer least-privilege bindings for non-demo environments.
+API server URL:
 
-### 5. Create the Pipeline job
+```bash
+kubectl cluster-info
+```
 
-1. New Item → Pipeline → name: `ai-chat-app`
-2. Pipeline → Definition: **Pipeline script from SCM**
-3. Point at this repository
-4. Script path: `Jenkinsfile`
-5. Save and run **Build Now**
+You will paste the token and API URL into Jenkins credentials next. `cluster-admin` is fine for a personal lab; tighten RBAC if this is shared.
 
-Notes:
+### 6. Add credentials in Jenkins
 
-- **Manual Build Now:** all gated stages run (path filters are skipped).
-- **Automatic triggers** (SCM / webhook / timer): stages follow `app/**` / `kubernetes/**` changesets.
-- Trivy failures fail the build; report is archived as `trivy-report.log`.
-- On failure, `scripts/analyze-logs.py` uses Gemini to summarize root cause and a suggested fix in Discord.
+| ID                | Type                     | Used for                 |
+| ----------------- | ------------------------ | ------------------------ |
+| `dockerhub-login` | Username/password        | Pushing images           |
+| `jenkins-token`   | Secret file / kubeconfig | Talking to the cluster   |
+| `k8s-api-server`  | Secret text              | Kubernetes API URL       |
+| `discord-webhook` | Secret text              | Build notifications      |
+| `gemini-api-key`  | Secret text              | Explaining failed builds |
+
+### 7. Create the pipeline job
+
+1. **New Item** → Pipeline → name it `ai-chat-app`.
+2. Under Pipeline, choose **Pipeline script from SCM**.
+3. Point it at this repo.
+4. Set the script path to `Jenkinsfile`.
+5. Save.
+
+### 8. Run a build
+
+- **Build Now** — runs every gated stage. Handy for the first run or a full rebuild.
+- **Automatic builds** (SCM / webhook / timer) — only run the stages that match what changed.
+
+| What changed                | What runs                                                         |
+| --------------------------- | ----------------------------------------------------------------- |
+| `app/**`                    | Install, lint/test, build, Trivy, push                            |
+| `app/**` or `kubernetes/**` | Ensure `chat-app` exists, apply manifests, wait for rollout       |
+| Every build (post)          | Discord ping; on failure, Gemini reads the log and suggests a fix |
+
+Images land as `abstergo07/ai-chat:<BUILD_NUMBER>` and `:latest`.
+
+If Trivy finds HIGH or CRITICAL issues, the build stops and `trivy-report.log` is archived on the job.
 
 ---
 
-## Repository layout
+## Checking the running system
+
+App service:
+
+```bash
+kubectl -n chat-app get svc ai-chat-svc
+```
+
+Grafana:
+
+```bash
+kubectl -n monitoring port-forward svc/prometheus-grafana 3000:80
+```
+
+Then open [http://127.0.0.1:3000](http://127.0.0.1:3000) — default login is `admin` / `prom-operator`. Change that before sharing the cluster.
+
+Dashboards (Service Overview, Database Overview, Service Logs) come from `grafana/`.
+
+The API exposes `/metrics`, Alloy ships logs to Loki, and the ServiceMonitor tells Prometheus what to scrape.
+
+To generate a bit of traffic:
+
+```bash
+./scripts/generate-load.sh
+```
+
+---
+
+## What’s in the repo
 
 ```text
 .
-├── app/                     # Express API, UI, business logic
-├── tests/                   # Mocha tests
+├── app/                     # API and UI
+├── tests/
 ├── grafana/                 # Dashboard JSON
-├── kubernetes/               # Plain manifests + monitoring values
-├── helm/                    # Helm chart + monitoring values
+├── kubernetes/               # Manifests + monitoring values
+├── helm/                    # Chart + monitoring values
 ├── kustomize/               # base + dev/prod overlays
 ├── scripts/
-│   ├── cluster.sh           # Minikube lifecycle
-│   ├── deploy-k8s-stack.sh  # Manifests + monitoring
-│   ├── deploy-helm-stack.sh # Helm + monitoring
-│   ├── deploy-jenkins.sh    # Local Jenkins
+│   ├── cluster.sh           # Minikube create/start/stop/delete
+│   ├── deploy-k8s-stack.sh  # Monitoring + manifests
+│   ├── deploy-helm-stack.sh # Monitoring + Helm chart
+│   ├── deploy-jenkins.sh    # Start Jenkins
 │   ├── security-scan.sh     # Trivy gate
-│   ├── analyze-logs.py      # Gemini failure analysis
-│   └── generate-load.sh     # Optional load test
+│   ├── analyze-logs.py      # Gemini on failure
+│   └── generate-load.sh
 ├── Dockerfile
-├── docker-compose.yaml
 ├── jenkins-compose.yaml
 ├── Jenkinsfile
 └── server.js
@@ -334,9 +298,9 @@ Notes:
 
 ---
 
-## Security notes
+## A few security notes
 
-- Demo MongoDB and Grafana credentials are for local use only — rotate them before sharing a cluster.
-- Do not commit `.env`, API keys, or kubeconfig tokens.
-- Trivy blocks HIGH/CRITICAL vulnerabilities before image push.
-- Prefer scoped RBAC for Jenkins instead of `cluster-admin` outside personal labs.
+- MongoDB and Grafana defaults are for local labs. Rotate them if anyone else can reach the cluster.
+- Keep secrets, API keys, and kubeconfig tokens out of git.
+- Trivy blocks HIGH/CRITICAL findings before an image is pushed.
+- Prefer a tighter role for Jenkins than `cluster-admin` outside a personal setup.

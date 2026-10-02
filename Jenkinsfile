@@ -108,7 +108,8 @@ pipeline {
             steps {
                 withKubeConfig(credentialsId: 'jenkins-token', serverUrl: env.API_URL) {
                     sh '''
-                        kubectl apply -n "$NAMESPACE" -f kubernetes/ > build.log 2>&1
+                        kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - > build.log 2>&1
+                        kubectl apply -n "$NAMESPACE" -f kubernetes/ >> build.log 2>&1
                         kubectl rollout status -n "$NAMESPACE" deploy/ai-chat --timeout=300s >> build.log 2>&1
                     '''
                 }
