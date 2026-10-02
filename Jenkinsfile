@@ -1,3 +1,7 @@
+def emptyChangelog() {
+    return currentBuild.changeSets == null || currentBuild.changeSets.isEmpty()
+}
+
 pipeline {
     agent any
 
@@ -16,7 +20,10 @@ pipeline {
     stages {
         stage('Install Dependencies') {
             when {
-                changeset 'app/**'
+                anyOf {
+                    changeset 'app/**'
+                    expression { emptyChangelog() }
+                }
             }
             steps {
                 sh 'yarn install --frozen-lockfile > build.log 2>&1'
@@ -25,7 +32,10 @@ pipeline {
 
         stage('Quality Checks') {
             when {
-                changeset 'app/**'
+                anyOf {
+                    changeset 'app/**'
+                    expression { emptyChangelog() }
+                }
             }
             parallel {
                 stage('Lint') {
@@ -43,7 +53,10 @@ pipeline {
 
         stage('Build Image') {
             when {
-                changeset 'app/**'
+                anyOf {
+                    changeset 'app/**'
+                    expression { emptyChangelog() }
+                }
             }
             steps {
                 sh 'docker build -t "$IMAGE:$IMAGE_TAG" -t "$IMAGE:latest" . > build.log 2>&1'
@@ -52,7 +65,10 @@ pipeline {
 
         stage('Security Scan') {
             when {
-                changeset 'app/**'
+                anyOf {
+                    changeset 'app/**'
+                    expression { emptyChangelog() }
+                }
             }
             steps {
                 sh './scripts/security-scan.sh "$IMAGE:$IMAGE_TAG" > build.log 2>&1'
@@ -68,7 +84,10 @@ pipeline {
 
         stage('Push Image') {
             when {
-                changeset 'app/**'
+                anyOf {
+                    changeset 'app/**'
+                    expression { emptyChangelog() }
+                }
             }
             steps {
                 withDockerRegistry(credentialsId: 'dockerhub-login', url: 'https://index.docker.io/v1/') {
@@ -83,6 +102,7 @@ pipeline {
                 anyOf {
                     changeset 'app/**'
                     changeset 'kubernetes/**'
+                    expression { emptyChangelog() }
                 }
             }
             steps {

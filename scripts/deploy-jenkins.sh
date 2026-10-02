@@ -4,13 +4,17 @@ set -e
 
 cd "$(dirname "$0")"
 
+for bin in /usr/bin/docker /usr/local/bin/kubectl /usr/local/bin/trivy; do
+    if [[ ! -x "$bin" ]]; then
+        echo "Missing required host binary: $bin"
+        echo "Install Docker, kubectl, and Trivy on the host before starting Jenkins."
+        exit 1
+    fi
+done
+
 docker compose -f ../jenkins-compose.yaml up -d
 
-docker compose -f ../jenkins-compose.yaml exec -T jenkins bash -c '
-	apt update && apt install -y python3
-	curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-	chmod +x /usr/local/bin/kubectl
-	curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-'
+docker compose -f ../jenkins-compose.yaml exec -T jenkins \
+    bash -c 'apt-get update && apt-get install -y python3'
 
 echo "Jenkins URL: http://127.0.0.1:8080"
