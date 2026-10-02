@@ -15,13 +15,19 @@ spec:
         - name: ai-chat-model
           image: ollama/ollama
           imagePullPolicy: IfNotPresent
+          env:
+            - name: OLLAMA_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: ai-chat-config
+                  key: OLLAMA_MODEL
           command:
             - /bin/sh
             - -c
             - |
               ollama serve &
               until ollama list > /dev/null 2>&1; do sleep 1; done
-              ollama pull smollm2:135m
+              ollama pull "$OLLAMA_MODEL"
               wait
           resources:
             requests:
@@ -34,7 +40,10 @@ spec:
             - containerPort: 11434
           startupProbe:
             exec:
-              command: ["/bin/sh", "-c", "ollama list | grep -F 'smollm2:135m'"]
+              command:
+                - /bin/sh
+                - -c
+                - ollama list | grep -F "$OLLAMA_MODEL"
             periodSeconds: 10
             failureThreshold: 60
             timeoutSeconds: 15

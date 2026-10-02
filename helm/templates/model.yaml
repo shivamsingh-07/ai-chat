@@ -15,13 +15,19 @@ spec:
         - name: {{ .Release.Name }}-model
           image: {{ .Values.ollama.image }}
           imagePullPolicy: IfNotPresent
+          env:
+            - name: OLLAMA_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-config
+                  key: OLLAMA_MODEL
           command:
             - /bin/sh
             - -c
             - |
               ollama serve &
               until ollama list > /dev/null 2>&1; do sleep 1; done
-              ollama pull {{ .Values.ollama.model }}
+              ollama pull "$OLLAMA_MODEL"
               wait
           resources:
             requests:
@@ -37,7 +43,7 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - ollama list | grep -F "{{ .Values.ollama.model }}"
+                - ollama list | grep -F "$OLLAMA_MODEL"
             periodSeconds: 10
             failureThreshold: 60
             timeoutSeconds: 15

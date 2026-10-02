@@ -4,7 +4,7 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="color-scheme" content="dark light" />
-        <title>AI Chat Bot</title>
+        <title>AI ChatBot</title>
         <link rel="icon" href="/ollama.svg" type="image/svg+xml" />
         <link rel="stylesheet" href="/styles.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
@@ -27,16 +27,11 @@
                         <img class="sidebar__logo" src="/ollama.svg" width="32" height="32" alt="" decoding="async" />
                     </a>
                     <div class="sidebar__titles">
-                        <h1 class="sidebar__title">AI Chat Bot</h1>
+                        <h1 class="sidebar__title">AI ChatBot</h1>
                         <p class="sidebar__subtitle-brand">Powered by Ollama</p>
                     </div>
                 </div>
-                <button
-                    class="btn btn--ghost btn--with-icon sidebar__new-btn"
-                    type="button"
-                    id="newSessionBtn"
-                    aria-label="Start a new conversation"
-                >
+                <button class="btn btn--ghost btn--with-icon sidebar__new-btn" type="button" id="newSessionBtn" aria-label="Start a new conversation">
                     <svg class="btn__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                     </svg>
@@ -97,27 +92,12 @@
                                     maxlength="100000"
                                     aria-describedby="composer-hint"
                                 ></textarea>
-                                <span id="composer-hint" class="visually-hidden">
-                                    Press Enter to send. Shift plus Enter for a new line.
-                                </span>
+                                <span id="composer-hint" class="visually-hidden"> Press Enter to send. Shift plus Enter for a new line. </span>
                             </div>
                         </div>
                         <button class="composer__send" id="sendBtn" type="submit">
-                            <svg
-                                class="composer__send-icon"
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="M22 2 11 13"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                />
+                            <svg class="composer__send-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M22 2 11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                 <path
                                     d="M22 2l-7 20-4-9-9-4 18-7Z"
                                     stroke="currentColor"

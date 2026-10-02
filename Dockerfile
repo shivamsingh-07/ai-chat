@@ -14,7 +14,6 @@ WORKDIR /app
 
 # Runtime only needs the node binary. Drop bundled npm/corepack so Trivy
 # does not fail the image on HIGH/CRITICAL CVEs in npm's nested deps
-# (brace-expansion, ip-address, tar, undici, …).
 RUN rm -rf \
     /usr/local/lib/node_modules/npm \
     /usr/local/lib/node_modules/corepack \
@@ -24,7 +23,8 @@ RUN rm -rf \
 
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 
-COPY --chown=node:node . .
+COPY --chown=node:node app ./app
+COPY --chown=node:node server.js ./
 
 USER node
 
