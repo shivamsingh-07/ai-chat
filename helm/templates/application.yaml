@@ -39,23 +39,25 @@ spec:
           startupProbe:
             tcpSocket:
               port: {{ .Values.app.port }}
-            periodSeconds: 5
-            failureThreshold: 60
-            timeoutSeconds: 3
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /health/live
               port: {{ .Values.app.port }}
-            periodSeconds: 15
+            periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /health/ready
               port: {{ .Values.app.port }}
+            initialDelaySeconds: 30
             periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 6
+            timeoutSeconds: 5
+            failureThreshold: 3
 
 ---
 apiVersion: v1

@@ -40,14 +40,23 @@ spec:
           startupProbe:
             tcpSocket:
               port: {{ .Values.database.port }}
-            periodSeconds: 5
-            failureThreshold: 30
-            timeoutSeconds: 5
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 5
           readinessProbe:
             exec:
-              command: ["mongosh", "--eval", "db.adminCommand('ping')"]
-            periodSeconds: 10
-            timeoutSeconds: 5
+              command:
+                - sh
+                - -c
+                - >
+                  mongosh
+                  -u "$MONGO_INITDB_ROOT_USERNAME"
+                  -p "$MONGO_INITDB_ROOT_PASSWORD"
+                  --authenticationDatabase admin
+                  --quiet
+                  --eval "db.adminCommand('ping')"
+            periodSeconds: 5
+            timeoutSeconds: 3
             failureThreshold: 3
           volumeMounts:
             - name: {{ .Release.Name }}-data-pvc

@@ -44,15 +44,16 @@ spec:
                 - /bin/sh
                 - -c
                 - ollama list | grep -F "$OLLAMA_MODEL"
+            initialDelaySeconds: 60
             periodSeconds: 10
-            failureThreshold: 60
-            timeoutSeconds: 15
+            failureThreshold: 5
+            timeoutSeconds: 3
           readinessProbe:
             tcpSocket:
               port: 11434
             periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
+            timeoutSeconds: 3
+            failureThreshold: 5
           volumeMounts:
             - name: ollama-models
               mountPath: /root/.ollama

@@ -6,7 +6,7 @@ data:
   MONGO_HOST: ai-chat-db-svc:27017
   MONGO_DB: ai-chat
   OLLAMA_URL: ai-chat-model-svc:11434
-  OLLAMA_MODEL: smollm2:135m
+  OLLAMA_MODEL: gemma3:270m
 
 ---
 apiVersion: v1

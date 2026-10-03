@@ -109,18 +109,15 @@ helm repo update
 
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring --create-namespace \
-  -f kubernetes/monitoring/prometheus-values.yaml \
-  --wait --timeout 300s
+  -f kubernetes/monitoring/prometheus-values.yaml
 
 helm upgrade --install loki grafana/loki \
   --namespace monitoring \
-  -f kubernetes/monitoring/loki-values.yaml \
-  --wait --timeout 300s
+  -f kubernetes/monitoring/loki-values.yaml
 
 helm upgrade --install alloy grafana/alloy \
   --namespace monitoring \
-  -f kubernetes/monitoring/alloy-values.yaml \
-  --wait --timeout 300s
+  -f kubernetes/monitoring/alloy-values.yaml
 ```
 
 Make sure things landed:
@@ -168,13 +165,13 @@ Open [http://127.0.0.1:8080](http://127.0.0.1:8080).
 1. Grab the initial admin password from the container logs or `/var/jenkins_home/secrets/initialAdminPassword`.
 2. Walk through the setup wizard.
 3. Install the suggested plugins, then add these if they are not already there:
-   - Docker Pipeline
-   - Kubernetes CLI
-   - NodeJS
-   - Pipeline
-   - Pipeline Utility Steps
-   - Git
-   - Discord Notifier
+    - Docker Pipeline
+    - Kubernetes CLI
+    - NodeJS
+    - Pipeline
+    - Pipeline Utility Steps
+    - Git
+    - Discord Notifier
 4. Under **Manage Jenkins → Tools → NodeJS**, add an installation named exactly `node-24-lts` and include `yarn` as a global npm package. The pipeline looks for that name.
 
 ### 5. Give Jenkins access to the cluster
