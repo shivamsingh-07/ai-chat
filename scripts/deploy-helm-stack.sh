@@ -22,21 +22,21 @@ echo "Deploying Prometheus stack..."
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
 	--namespace "$MONITORING_NS" \
 	--create-namespace \
-	-f ../helm/monitoring/prometheus-values.yaml \
+	-f ../observability/monitoring/prometheus-values.yaml \
 	--wait \
 	--timeout 300s
 
 echo "Deploying Loki..."
 helm upgrade --install loki grafana/loki \
 	--namespace "$MONITORING_NS" \
-	-f ../helm/monitoring/loki-values.yaml \
+	-f ../observability/monitoring/loki-values.yaml \
 	--wait \
 	--timeout 300s
 
 echo "Deploying Grafana Alloy..."
 helm upgrade --install alloy grafana/alloy \
 	--namespace "$MONITORING_NS" \
-	-f ../helm/monitoring/alloy-values.yaml \
+	-f ../observability/monitoring/alloy-values.yaml \
 	--wait \
 	--timeout 300s
 

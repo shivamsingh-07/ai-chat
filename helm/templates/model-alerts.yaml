@@ -1,0 +1,145 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-model-alerts
+  labels:
+    grafana_alert: "1"
+data:
+  model-alerts.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: {{ .Release.Name }}-model
+        folder: AI Chat
+        interval: 1m
+        rules:
+          - uid: {{ .Release.Name }}-model-high-cpu
+            title: AI Chat model high CPU
+            condition: C
+            data:
+              - refId: A
+                datasourceUid: prometheus
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                model:
+                  datasource:
+                    type: prometheus
+                    uid: prometheus
+                  editorMode: code
+                  expr: |
+                    sum(rate(container_cpu_usage_seconds_total{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model"}[5m]))
+                    /
+                    sum(kube_pod_container_resource_limits{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model",resource="cpu"})
+                  instant: true
+                  refId: A
+              - refId: B
+                datasourceUid: prometheus
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                model:
+                  datasource:
+                    type: prometheus
+                    uid: prometheus
+                  editorMode: code
+                  expr: kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}",deployment="{{ .Release.Name }}-model"}
+                  instant: true
+                  refId: B
+              - refId: C
+                datasourceUid: __expr__
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                model:
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  refId: C
+                  type: threshold
+                  conditions:
+                    - evaluator:
+                        params: [0.8]
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params: [A]
+                      reducer:
+                        type: last
+                      type: query
+            noDataState: NoData
+            execErrState: Error
+            for: 5m
+            annotations:
+              summary: Model pods are using more than 80% of their CPU limit
+              description: CPU ratio {{`{{ $values.A.Value }}`}}. Running pods {{`{{ $values.B.Value }}`}}.
+            labels:
+              severity: warning
+            isPaused: false
+          - uid: {{ .Release.Name }}-model-high-memory
+            title: AI Chat model high memory
+            condition: C
+            data:
+              - refId: A
+                datasourceUid: prometheus
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                model:
+                  datasource:
+                    type: prometheus
+                    uid: prometheus
+                  editorMode: code
+                  expr: |
+                    sum(container_memory_working_set_bytes{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model"})
+                    /
+                    sum(kube_pod_container_resource_limits{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model",resource="memory"})
+                  instant: true
+                  refId: A
+              - refId: B
+                datasourceUid: prometheus
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                model:
+                  datasource:
+                    type: prometheus
+                    uid: prometheus
+                  editorMode: code
+                  expr: kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}",deployment="{{ .Release.Name }}-model"}
+                  instant: true
+                  refId: B
+              - refId: C
+                datasourceUid: __expr__
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                model:
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  refId: C
+                  type: threshold
+                  conditions:
+                    - evaluator:
+                        params: [0.8]
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params: [A]
+                      reducer:
+                        type: last
+                      type: query
+            noDataState: NoData
+            execErrState: Error
+            for: 5m
+            annotations:
+              summary: Model pods are using more than 80% of their memory limit
+              description: Memory ratio {{`{{ $values.A.Value }}`}}. Running pods {{`{{ $values.B.Value }}`}}.
+            labels:
+              severity: warning
+            isPaused: false

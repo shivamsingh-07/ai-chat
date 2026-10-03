@@ -86,21 +86,33 @@ kubectl get nodes -o wide
 
 ### 2. Install monitoring (do this before Jenkins deploys)
 
-The app manifests include a `ServiceMonitor`. That resource only exists after kube-prometheus-stack is installed. If you skip this step, the first Jenkins deploy will fail on the CRD.
+Install the observability stack before you expect metrics, logs, or model alerts. Jenkins only applies the app manifests in `kubernetes/`, so it will not create the ServiceMonitor or Grafana alert rules.
 
-Easiest path — monitoring plus a first app deploy in one go:
+Easiest path — install observability once, then deploy the app:
 
 ```bash
+./scripts/deploy-observability.sh
 ./scripts/deploy-k8s-stack.sh
 ```
 
-That script will:
+`deploy-observability.sh` installs:
 
-1. Install kube-prometheus-stack in `monitoring` (this brings in the ServiceMonitor CRDs)
-2. Install Loki and Grafana Alloy in `monitoring`
-3. Deploy the app into `chat-app` (database, model, API, HPA, ServiceMonitor, Grafana dashboards)
+1. kube-prometheus-stack, Loki, and Grafana Alloy in `monitoring`
+2. The ServiceMonitor, model alerts, Grafana dashboards, and MongoDB exporter in `chat-app`
 
-If you only want monitoring for now:
+Model alerts live in Grafana, not Prometheus. **AI Chat model high CPU** and **AI Chat model high memory** fire when usage stays above 80% of the limit for 5 minutes. The message includes the usage ratio and how many model pods are running.
+
+Grafana evaluates the rules. It does not send them anywhere until you add a Discord contact point:
+
+1. Open Grafana → **Alerting** → **Contact points** → **Add contact point**.
+2. Name it `discord`, choose **Discord**, and paste your webhook URL. Use **Test** before saving. Do not commit that URL.
+3. Open **Alerting** → **Notification policies** and set the default policy, or a policy for the `AI Chat` folder, to the `discord` contact point.
+
+Until that contact point exists, the rules still show under **Alerting** → **Alert rules**, but Discord stays quiet.
+
+`deploy-k8s-stack.sh` only applies the app workloads (config, database, model, autoscaler, API). Jenkins does the same from `kubernetes/` on later deploys.
+
+If you only want the cluster monitoring charts:
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -109,15 +121,15 @@ helm repo update
 
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring --create-namespace \
-  -f kubernetes/monitoring/prometheus-values.yaml
+  -f observability/monitoring/prometheus-values.yaml
 
 helm upgrade --install loki grafana/loki \
   --namespace monitoring \
-  -f kubernetes/monitoring/loki-values.yaml
+  -f observability/monitoring/loki-values.yaml
 
 helm upgrade --install alloy grafana/alloy \
   --namespace monitoring \
-  -f kubernetes/monitoring/alloy-values.yaml
+  -f observability/monitoring/alloy-values.yaml
 ```
 
 Make sure things landed:
@@ -165,13 +177,13 @@ Open [http://127.0.0.1:8080](http://127.0.0.1:8080).
 1. Grab the initial admin password from the container logs or `/var/jenkins_home/secrets/initialAdminPassword`.
 2. Walk through the setup wizard.
 3. Install the suggested plugins, then add these if they are not already there:
-    - Docker Pipeline
-    - Kubernetes CLI
-    - NodeJS
-    - Pipeline
-    - Pipeline Utility Steps
-    - Git
-    - Discord Notifier
+   - Docker Pipeline
+   - Kubernetes CLI
+   - NodeJS
+   - Pipeline
+   - Pipeline Utility Steps
+   - Git
+   - Discord Notifier
 4. Under **Manage Jenkins → Tools → NodeJS**, add an installation named exactly `node-24-lts` and include `yarn` as a global npm package. The pipeline looks for that name.
 
 ### 5. Give Jenkins access to the cluster
@@ -257,9 +269,14 @@ kubectl -n monitoring port-forward svc/prometheus-grafana 3000:80
 
 Then open [http://127.0.0.1:3000](http://127.0.0.1:3000) — default login is `admin` / `prom-operator`. Change that before sharing the cluster.
 
-Dashboards (Service Overview, Database Overview, Service Logs) come from `grafana/`.
+Dashboards in Grafana:
 
-The API exposes `/metrics`, Alloy ships logs to Loki, and the ServiceMonitor tells Prometheus what to scrape.
+- AI Chat / Service Overview
+- AI Chat / Database Overview
+- AI Chat / Service Logs
+- AI Chat / LLM Overview
+
+The API exposes `/metrics`. Alloy ships logs to Loki. The ServiceMonitor tells Prometheus what to scrape. LLM Overview shows model pod count, CPU, and memory. Grafana raises an alert when either stays above 80% of the limit for 5 minutes. Discord receives it after you add the contact point described above.
 
 To generate a bit of traffic:
 
@@ -276,19 +293,21 @@ To generate a bit of traffic:
 ├── app/                     # API and UI
 ├── tests/
 ├── grafana/                 # Dashboard JSON
-├── kubernetes/               # Manifests + monitoring values
+├── kubernetes/              # App manifests applied by CI
+├── observability/           # Monitoring values, ServiceMonitor, alerts
 ├── helm/                    # Chart + monitoring values
 ├── kustomize/               # base + dev/prod overlays
 ├── scripts/
 │   ├── cluster.sh           # Minikube create/start/stop/delete
-│   ├── deploy-k8s-stack.sh  # Monitoring + manifests
+│   ├── deploy-observability.sh  # Prometheus, Loki, Alloy, dashboards
+│   ├── deploy-k8s-stack.sh  # App manifests
 │   ├── deploy-helm-stack.sh # Monitoring + Helm chart
 │   ├── deploy-jenkins.sh    # Start Jenkins
+│   ├── jenkins-compose.yaml # Jenkins container
 │   ├── security-scan.sh     # Trivy gate
 │   ├── analyze-logs.py      # Gemini on failure
 │   └── generate-load.sh
 ├── Dockerfile
-├── jenkins-compose.yaml
 ├── Jenkinsfile
 └── server.js
 ```
@@ -298,6 +317,6 @@ To generate a bit of traffic:
 ## A few security notes
 
 - MongoDB and Grafana defaults are for local labs. Rotate them if anyone else can reach the cluster.
-- Keep secrets, API keys, and kubeconfig tokens out of git.
+- Keep secrets, API keys, kubeconfig tokens, and the Discord webhook out of git.
 - Trivy blocks HIGH/CRITICAL findings before an image is pushed.
 - Prefer a tighter role for Jenkins than `cluster-admin` outside a personal setup.

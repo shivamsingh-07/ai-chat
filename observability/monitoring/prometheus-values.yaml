@@ -1,4 +1,10 @@
 grafana:
+  sidecar:
+    alerts:
+      enabled: true
+      label: grafana_alert
+      labelValue: "1"
+      searchNamespace: ALL
   additionalDataSources:
     - name: Loki
       type: loki

@@ -29,3 +29,14 @@ metadata:
 data:
   app-logs.json: |
 {{ .Files.Get "dashboards/app-logs.json" | indent 4 }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-model-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  model.json: |
+{{ .Files.Get "dashboards/model.json" | indent 4 }}

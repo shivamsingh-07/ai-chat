@@ -11,7 +11,7 @@ services:
       MONGO_USER: admin
       MONGO_PASSWORD: password
       OLLAMA_URL: ollama:11434
-      OLLAMA_MODEL: smollm2:135m
+      OLLAMA_MODEL: gemma3:270m
     depends_on:
       database:
         condition: service_healthy
@@ -50,10 +50,10 @@ services:
       - |
         ollama serve &
         until ollama list > /dev/null 2>&1; do sleep 1; done
-        ollama pull smollm2:135m
+        ollama pull gemma3:270m
         wait
     healthcheck:
-      test: ["CMD-SHELL", "ollama list | grep smollm2:135m"]
+      test: ["CMD-SHELL", "ollama list | grep gemma3:270m"]
       start_period: 30s
     networks:
       - ai-net
