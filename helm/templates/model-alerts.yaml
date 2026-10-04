@@ -9,7 +9,7 @@ data:
     apiVersion: 1
     groups:
       - orgId: 1
-        name: {{ .Release.Name }}-model
+        name: {{ .Release.Name }}-model-cpu
         folder: AI Chat
         interval: 1m
         rules:
@@ -28,9 +28,11 @@ data:
                     uid: prometheus
                   editorMode: code
                   expr: |
-                    sum(rate(container_cpu_usage_seconds_total{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model"}[5m]))
-                    /
-                    sum(kube_pod_container_resource_limits{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model",resource="cpu"})
+                    avg(
+                      sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model"}[5m]))
+                      /
+                      sum by (pod) (kube_pod_container_resource_requests{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model",resource="cpu"})
+                    )
                   instant: true
                   refId: A
               - refId: B
@@ -60,7 +62,7 @@ data:
                   type: threshold
                   conditions:
                     - evaluator:
-                        params: [0.8]
+                        params: [0.75]
                         type: gt
                       operator:
                         type: and
@@ -71,13 +73,18 @@ data:
                       type: query
             noDataState: NoData
             execErrState: Error
-            for: 5m
+            for: 1m
             annotations:
-              summary: Model pods are using more than 80% of their CPU limit
-              description: CPU ratio {{`{{ $values.A.Value }}`}}. Running pods {{`{{ $values.B.Value }}`}}.
+              summary: Model pods are using more than 75% of their CPU request
+              description: "CPU usage is {{`{{ $values.A.Value | humanizePercentage }}`}}. Running pods: {{`{{ $values.B.Value }}`}}."
             labels:
               severity: warning
             isPaused: false
+      - orgId: 1
+        name: {{ .Release.Name }}-model-memory
+        folder: AI Chat
+        interval: 1m
+        rules:
           - uid: {{ .Release.Name }}-model-high-memory
             title: AI Chat model high memory
             condition: C
@@ -93,9 +100,11 @@ data:
                     uid: prometheus
                   editorMode: code
                   expr: |
-                    sum(container_memory_working_set_bytes{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model"})
-                    /
-                    sum(kube_pod_container_resource_limits{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model",resource="memory"})
+                    avg(
+                      sum by (pod) (container_memory_working_set_bytes{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model"})
+                      /
+                      sum by (pod) (kube_pod_container_resource_requests{namespace="{{ .Release.Namespace }}",pod=~"{{ .Release.Name }}-model-.+",container="{{ .Release.Name }}-model",resource="memory"})
+                    )
                   instant: true
                   refId: A
               - refId: B
@@ -125,7 +134,7 @@ data:
                   type: threshold
                   conditions:
                     - evaluator:
-                        params: [0.8]
+                        params: [0.5]
                         type: gt
                       operator:
                         type: and
@@ -136,10 +145,10 @@ data:
                       type: query
             noDataState: NoData
             execErrState: Error
-            for: 5m
+            for: 1m
             annotations:
-              summary: Model pods are using more than 80% of their memory limit
-              description: Memory ratio {{`{{ $values.A.Value }}`}}. Running pods {{`{{ $values.B.Value }}`}}.
+              summary: Model pods are using more than 50% of their memory request
+              description: "Memory usage is {{`{{ $values.A.Value | humanizePercentage }}`}}. Running pods: {{`{{ $values.B.Value }}`}}."
             labels:
               severity: warning
             isPaused: false

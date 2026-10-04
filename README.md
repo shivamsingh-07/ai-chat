@@ -97,16 +97,18 @@ Easiest path — install observability once, then deploy the app:
 
 `deploy-observability.sh` installs:
 
-1. kube-prometheus-stack, Loki, and Grafana Alloy in `monitoring`
-2. The ServiceMonitor, model alerts, Grafana dashboards, and MongoDB exporter in `chat-app`
+1. kube-prometheus-stack, Loki, Grafana Alloy, and the MongoDB exporter in `monitoring`
+2. The ServiceMonitor, model alerts, and Grafana dashboards in `chat-app`
 
-Model alerts live in Grafana, not Prometheus. **AI Chat model high CPU** and **AI Chat model high memory** fire when usage stays above 80% of the limit for 5 minutes. The message includes the usage ratio and how many model pods are running.
+Model alerts live in Grafana, not Prometheus. **AI Chat model high CPU** fires when average CPU stays above 75% of the request for 1 minute. **AI Chat model high memory** fires when average memory stays above 50% of the request for 1 minute. Those are the same targets as the model HPA. The message includes the usage and how many model pods are running.
+
+`prometheus-config-reloader` only reloads Prometheus. It does not read `ai-chat-model-alerts`. Grafana loads that ConfigMap with a container named `grafana-sc-alerts`, which starts only after the Prometheus stack is installed or upgraded with `observability/monitoring/prometheus-values.yaml`. Re-run `./scripts/deploy-observability.sh` if that container is missing from the Grafana pod. The CPU and memory rules stay in separate groups under **Alerting** → **Alert rules**, in the **AI Chat** folder. Grafana only stores alert rules in a real folder, so that folder is also listed under Dashboards. It has no dashboards in it.
 
 Grafana evaluates the rules. It does not send them anywhere until you add a Discord contact point:
 
 1. Open Grafana → **Alerting** → **Contact points** → **Add contact point**.
 2. Name it `discord`, choose **Discord**, and paste your webhook URL. Use **Test** before saving. Do not commit that URL.
-3. Open **Alerting** → **Notification policies** and set the default policy, or a policy for the `AI Chat` folder, to the `discord` contact point.
+3. Open **Alerting** → **Notification policies** and set the default policy to the `discord` contact point.
 
 Until that contact point exists, the rules still show under **Alerting** → **Alert rules**, but Discord stays quiet.
 
@@ -276,7 +278,7 @@ Dashboards in Grafana:
 - AI Chat / Service Logs
 - AI Chat / LLM Overview
 
-The API exposes `/metrics`. Alloy ships logs to Loki. The ServiceMonitor tells Prometheus what to scrape. LLM Overview shows model pod count, CPU, and memory. Grafana raises an alert when either stays above 80% of the limit for 5 minutes. Discord receives it after you add the contact point described above.
+The API exposes `/metrics`. Alloy ships logs to Loki. The ServiceMonitor tells Prometheus what to scrape. LLM Overview shows model pod count, CPU, and memory. Grafana raises an alert when average CPU stays above 75% of the request, or average memory stays above 50% of the request, for 1 minute. Discord receives it after you add the contact point described above.
 
 To generate a bit of traffic:
 

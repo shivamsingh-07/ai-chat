@@ -24,7 +24,7 @@ helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
 	--create-namespace \
 	-f ../observability/monitoring/prometheus-values.yaml \
 	--wait \
-	--timeout 300s
+	--timeout 10m
 
 echo "Deploying Loki..."
 helm upgrade --install loki grafana/loki \

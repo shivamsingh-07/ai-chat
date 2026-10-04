@@ -1,4 +1,49 @@
+kubeApiServer:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+nodeExporter:
+  enabled: false
+
+defaultRules:
+  create: false
+
+prometheus:
+  serviceMonitor:
+    selfMonitor: false
+  prometheusSpec:
+    serviceMonitorSelector:
+      matchLabels:
+        release: prometheus
+
+alertmanager:
+  enabled: false
+
+prometheusOperator:
+  enabled: true
+  serviceMonitor:
+    selfMonitor: false
+
 grafana:
+  defaultDashboardsEnabled: false
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: standard
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
   sidecar:
     alerts:
       enabled: true

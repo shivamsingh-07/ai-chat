@@ -1,34 +1,88 @@
 {
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "description": "CPU, memory, and replica count for the Ollama model pods.",
   "editable": true,
   "graphTooltip": 1,
   "schemaVersion": 39,
-  "tags": ["ai-chat", "model"],
+  "tags": ["ai-chat", "model", "llm"],
   "title": "AI Chat / LLM Overview",
   "uid": "ai-chat-model-pods",
   "refresh": "30s",
-  "time": { "from": "now-1h", "to": "now" },
-  "templating": { "list": [] },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
   "panels": [
     {
       "id": 1,
       "type": "stat",
-      "title": "Running model pods",
-      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 5 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
-      "targets": [{ "expr": "kube_deployment_status_replicas_available{namespace=\"chat-app\",deployment=\"ai-chat-model\"}", "refId": "A" }]
+      "title": "Running Model Pods",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "kube_deployment_status_replicas_available{namespace=\"chat-app\",deployment=\"ai-chat-model\"}",
+          "refId": "A"
+        }
+      ]
     },
     {
       "id": 2,
       "type": "stat",
-      "title": "CPU % of limit",
-      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 5 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "title": "CPU Usage / Limit",
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
       "targets": [
         {
           "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"chat-app\",pod=~\"ai-chat-model-.+\",container=\"ai-chat-model\"}[5m])) / sum(kube_pod_container_resource_limits{namespace=\"chat-app\",pod=~\"ai-chat-model-.+\",container=\"ai-chat-model\",resource=\"cpu\"})",
@@ -39,11 +93,33 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Memory % of limit",
-      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 5 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "title": "Memory Usage / Limit",
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
       "targets": [
         {
           "expr": "sum(container_memory_working_set_bytes{namespace=\"chat-app\",pod=~\"ai-chat-model-.+\",container=\"ai-chat-model\"}) / sum(kube_pod_container_resource_limits{namespace=\"chat-app\",pod=~\"ai-chat-model-.+\",container=\"ai-chat-model\",resource=\"memory\"})",
@@ -54,10 +130,24 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "CPU by pod",
-      "gridPos": { "x": 0, "y": 5, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "title": "CPU Usage by Pod",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores",
+          "decimals": 2
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"chat-app\",pod=~\"ai-chat-model-.+\",container=\"ai-chat-model\"}[5m]))",
@@ -69,10 +159,24 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Memory by pod",
-      "gridPos": { "x": 12, "y": 5, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "title": "Memory Usage by Pod",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 0
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"chat-app\",pod=~\"ai-chat-model-.+\",container=\"ai-chat-model\"})",
